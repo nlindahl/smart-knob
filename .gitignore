@@ -1,0 +1,14 @@
+/target/
+/build*/
+/artifacts/
+/web/dist/
+/web/preview.js
+/web/preview.wasm
+/web/pkg/
+/*.log
+/.venv/
+*.skv
+*.ppm
+*.png
+__pycache__/
+node_modules/

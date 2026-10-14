@@ -1,0 +1,394 @@
+{
+  "version": 1,
+  "start_view": 1,
+  "views": [
+    {
+      "id": 1,
+      "name": "Free spin",
+      "background": 1054752,
+      "haptics": {
+        "mode": "free",
+        "min": 0,
+        "max": 100,
+        "initial": 0,
+        "width_deg": 6.0,
+        "strength": 0.0,
+        "endstop": 0.8,
+        "snap": 1.1,
+        "damping": 0.5,
+        "detents": []
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 2,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Free spin"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Fine detents",
+      "background": 1054752,
+      "haptics": {
+        "mode": "detent",
+        "min": 0,
+        "max": 100,
+        "initial": 0,
+        "width_deg": 6.0,
+        "strength": 0.65,
+        "endstop": 0.8,
+        "snap": 1.1,
+        "damping": 0.5,
+        "detents": []
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 3,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Fine detents"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Coarse detents",
+      "background": 1054752,
+      "haptics": {
+        "mode": "detent",
+        "min": 0,
+        "max": 100,
+        "initial": 0,
+        "width_deg": 30.0,
+        "strength": 0.65,
+        "endstop": 0.8,
+        "snap": 1.1,
+        "damping": 0.5,
+        "detents": []
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 4,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Coarse detents"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Bounded",
+      "background": 1054752,
+      "haptics": {
+        "mode": "bounded",
+        "min": 0,
+        "max": 100,
+        "initial": 0,
+        "width_deg": 6.0,
+        "strength": 0.65,
+        "endstop": 0.8,
+        "snap": 1.1,
+        "damping": 0.5,
+        "detents": []
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 5,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Bounded"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Magnetic",
+      "background": 1054752,
+      "haptics": {
+        "mode": "magnetic",
+        "min": 0,
+        "max": 100,
+        "initial": 0,
+        "width_deg": 6.0,
+        "strength": 0.65,
+        "endstop": 0.8,
+        "snap": 1.1,
+        "damping": 0.5,
+        "detents": [
+          0,
+          5,
+          10
+        ]
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 6,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Magnetic"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Switch",
+      "background": 1054752,
+      "haptics": {
+        "mode": "switch",
+        "min": 0,
+        "max": 1,
+        "initial": 0,
+        "width_deg": 60.0,
+        "strength": 0.65,
+        "endstop": 0.8,
+        "snap": 0.55,
+        "damping": 0.5,
+        "detents": []
+      },
+      "leds": {
+        "mode": "position",
+        "brightness": 64,
+        "color": 4576944,
+        "accent": 330253,
+        "offset": 0,
+        "reverse": false,
+        "press_flash": true,
+        "mode_flash": true
+      },
+      "on_press": 1,
+      "on_long_press": 1,
+      "widgets": [
+        {
+          "id": 1,
+          "kind": "arc",
+          "x": 20,
+          "y": 20,
+          "w": 200,
+          "h": 200,
+          "color": 4576944,
+          "font_size": 16,
+          "text": ""
+        },
+        {
+          "id": 2,
+          "kind": "label",
+          "x": 20,
+          "y": 70,
+          "w": 200,
+          "h": 30,
+          "color": 15003125,
+          "font_size": 24,
+          "text": "Switch"
+        },
+        {
+          "id": 3,
+          "kind": "value",
+          "x": 45,
+          "y": 110,
+          "w": 150,
+          "h": 45,
+          "color": 16777215,
+          "font_size": 32,
+          "text": ""
+        }
+      ]
+    }
+  ]
+}

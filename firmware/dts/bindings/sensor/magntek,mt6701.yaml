@@ -1,0 +1,3 @@
+description: MagnTek MT6701 24-bit SSI absolute angle encoder
+compatible: "magntek,mt6701"
+include: spi-device.yaml

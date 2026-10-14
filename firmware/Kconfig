@@ -1,0 +1,10 @@
+mainmenu "SmartKnob"
+source "Kconfig.zephyr"
+config SK_PRESS_THRESHOLD
+    int "HX711 press threshold in raw ADC counts"
+    default 50000
+    range 100 8000000
+config SK_MOTOR_DEADTIME_NS
+    int "Motor gate dead time in nanoseconds"
+    default 500
+    range 250 1500

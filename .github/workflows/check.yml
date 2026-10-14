@@ -1,0 +1,27 @@
+name: Check
+on: [push, pull_request]
+jobs:
+  core-and-editor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - run: pip install -r requirements-dev.txt
+      - run: git clone --depth 1 --branch v9.6.0 https://github.com/lvgl/lvgl ../lvgl
+      - run: LVGL_DIR=../lvgl scripts/check.sh
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: smart-knob
+      - run: pip install -r smart-knob/requirements-dev.txt
+      - run: west init -l smart-knob && west update --narrow -o=--depth=1
+      - run: pip install -r zephyr/scripts/requirements-base.txt
+      - run: west blobs fetch hal_espressif
+      - run: west sdk install --version 1.0.1 --gnu-toolchains xtensa-espressif_esp32s3_zephyr-elf
+      - run: west build -b esp32s3_devkitc/esp32s3/procpu smart-knob/firmware -d smart-knob/build-firmware

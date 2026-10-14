@@ -1,0 +1,14 @@
+manifest:
+  version: "1.2"
+  projects:
+    - name: zephyr
+      url: https://github.com/zephyrproject-rtos/zephyr
+      revision: v4.4.2
+      import:
+        name-allowlist: [hal_espressif]
+    - name: lvgl
+      url: https://github.com/lvgl/lvgl
+      revision: v9.6.0
+      path: modules/lib/gui/lvgl
+  self:
+    path: smart-knob

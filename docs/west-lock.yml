@@ -1,0 +1,23 @@
+manifest:
+  group-filter:
+  - -babblesim
+  - -optional
+  - -testing
+  projects:
+  - name: zephyr
+    url: https://github.com/zephyrproject-rtos/zephyr
+    revision: dccb09599635bdff17633fa7e9dab014b91dce90
+    west-commands: scripts/west-commands.yml
+  - name: lvgl
+    url: https://github.com/lvgl/lvgl
+    revision: 80ca777e37a2b176770726a02e07a6fb79ef0b39
+    path: modules/lib/gui/lvgl
+  - name: hal_espressif
+    url: https://github.com/zephyrproject-rtos/hal_espressif
+    revision: f07465053c0f24aa254d9fdfd559f06879221073
+    path: modules/hal/espressif
+    west-commands: west/west-commands.yml
+    groups:
+    - hal
+  self:
+    path: smart-knob

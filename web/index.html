@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SmartKnob Studio</title>
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;color:#e4edf5;font-family:system-ui}#editor{width:100%;height:100%;display:block}#loading{position:absolute;inset:0;display:grid;place-content:center;text-align:center}#loading p{color:#a9bbc9}</style>
+</head>
+<body>
+  <canvas id="editor"></canvas>
+  <div id="loading"><h1>SmartKnob Studio</h1><p>Loading the editor and LVGL preview…</p></div>
+  <script type="module">
+    import { ready } from './bridge.js';
+    import init, { start } from './pkg/knob_editor.js';
+    try { await ready; await init(); await start('editor'); document.querySelector('#loading').remove(); }
+    catch (e) { document.querySelector('#loading').textContent = `Unable to start: ${e.message || e}`; console.error(e); }
+  </script>
+</body>
+</html>

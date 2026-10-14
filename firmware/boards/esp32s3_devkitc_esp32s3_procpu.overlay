@@ -1,0 +1,96 @@
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/led/led.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+/ {
+    model = "Seedlabs SmartKnob DevKit v0.1";
+    chosen { zephyr,display = &lcd; };
+    aliases { led-strip = &ring; };
+    strain {
+        compatible = "gpio-leds";
+        strain_data: data { gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>; };
+        strain_clock: clock { gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>; };
+    };
+    backlight { compatible = "pwm-leds"; backlight_pwm: backlight { pwms = <&ledc0 0 PWM_USEC(25) PWM_POLARITY_NORMAL>; }; };
+    mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        spi-dev = <&spi3>;
+        dc-gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+        lcd: display@0 {
+            compatible = "galaxycore,gc9x01x";
+            reg = <0>;
+            mipi-max-frequency = <40000000>;
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+            width = <240>;
+            height = <240>;
+            display-inversion;
+        };
+    };
+};
+&pinctrl {
+    knob_encoder: encoder {
+        group1 { pinmux = <SPIM2_MISO_GPIO14>, <SPIM2_SCLK_GPIO13>; };
+    };
+    knob_display: display {
+        group1 { pinmux = <SPIM3_SCLK_GPIO4>; };
+        group2 { pinmux = <SPIM3_MOSI_GPIO3>; output-low; };
+    };
+    knob_leds: leds {
+        group1 { pinmux = <I2S0_O_SD_GPIO12>, <I2S0_O_WS_GPIO40>, <I2S0_O_BCK_GPIO41>; };
+    };
+    knob_backlight: backlight {
+        group1 { pinmux = <LEDC_CH0_GPIO5>; output-low; };
+    };
+};
+&spi2 {
+    status = "okay";
+    pinctrl-0 = <&knob_encoder>;
+    cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+    encoder: encoder@0 { compatible = "magntek,mt6701"; reg = <0>; spi-max-frequency = <4000000>; spi-cs-setup-delay-ns = <1000>; };
+};
+&spi3 {
+    status = "okay";
+    pinctrl-0 = <&knob_display>;
+    cs-gpios = <&gpio0 9 GPIO_ACTIVE_LOW>;
+};
+&i2s0 {
+    status = "okay";
+    pinctrl-0 = <&knob_leds>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    ring: led_strip@0 {
+        reg = <0>;
+        compatible = "worldsemi,ws2812-i2s";
+        chain-length = <72>;
+        color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+        reset-delay = <80>;
+        nibble-one = <0x0c>;
+        nibble-zero = <0x08>;
+        lrck-period = <10>;
+    };
+};
+&ledc0 {
+    status = "okay";
+    pinctrl-0 = <&knob_backlight>;
+    pinctrl-names = "default";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    channel@0 { reg = <0>; timer = <0>; };
+};
+&usb_serial { status = "okay"; };
+&usb_otg { status = "disabled"; };
+&uart0 { status = "disabled"; };
+&wifi { status = "disabled"; };
+&esp32_bt_hci { status = "disabled"; };
+&psram0 { size = <DT_SIZE_M(8)>; };
+&flash0 {
+    reg = <0x0 DT_SIZE_M(16)>;
+    partitions {
+        /delete-node/ partition@3b0000;
+        storage_partition: partition@f00000 { label = "storage"; reg = <0xf00000 0x40000>; };
+    };
+};
+
+&dma { status = "okay"; };
