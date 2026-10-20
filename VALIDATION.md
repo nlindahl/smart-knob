@@ -1,5 +1,10 @@
 # Validation — 2026-10-14
 
+## Motor cycle-counter correction — 2026-10-20
+
+- Traced zero loop-time telemetry to `k_cycle_get_64()` on the configured Xtensa timer, which lacks `CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER`. With assertions off, that API returns zero, also breaking the control-loop time interval.
+- Period, execution-time, and resume measurements now use 32-bit cycle readings and unsigned deltas across counter wrap. The firmware cross-build passes, and object relocations confirm calls to `sys_clock_cycle_get_32`. Physical timing/calibration validation remains required.
+
 ## Encoder field-warning correction — 2026-10-20
 
 - A physical Dev Kit report showed 17,978 reads, zero SPI/CRC errors, and 16,462 rejected status frames. Its captured `48D4A4` frame has matching CRC `24`, no tracking loss, and weak-field status 2. This identifies the decoder's fatal treatment of a strength warning as the reported fault's cause.

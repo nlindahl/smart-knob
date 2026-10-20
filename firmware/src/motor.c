@@ -225,12 +225,14 @@ static void run(void *a, void *b, void *c) {
     sk_haptic_config default_config = {
         .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
     sk_haptic_init(&haptic, &default_config, 0);
-    uint64_t last = k_cycle_get_64();
+    /* The Xtensa timer has a 32-bit CCOUNT, not a 64-bit cycle counter.
+     * Unsigned deltas handle its wrap every ~17.9 s at 240 MHz. */
+    uint32_t last = k_cycle_get_32();
     uint32_t bad_samples = 0;
     while (true) {
         k_sem_take(&control_tick, K_FOREVER);
-        uint64_t begin = k_cycle_get_64();
-        float dt = (float)k_cyc_to_us_floor64(begin - last) / 1000000;
+        uint32_t begin = k_cycle_get_32();
+        float dt = (float)k_cyc_to_us_floor64((uint32_t)(begin - last)) / 1000000;
         last = begin;
         if (atomic_get(&stop_requested)) {
             gates_off();
@@ -245,7 +247,7 @@ static void run(void *a, void *b, void *c) {
             continue;
         }
         if (atomic_cas(&paused, 1, 0)) {
-            last = k_cycle_get_64();
+            last = k_cycle_get_32();
             dt = .001f;
         }
         int rc = encoder_read(&raw);
@@ -253,7 +255,7 @@ static void run(void *a, void *b, void *c) {
             gates_off();
             if (++bad_samples >= 3)
                 fault(FAULT_ENCODER);
-            uint32_t elapsed = k_cyc_to_us_floor64(k_cycle_get_64() - begin);
+            uint32_t elapsed = k_cyc_to_us_floor64((uint32_t)(k_cycle_get_32() - begin));
             snapshot(fmaxf(elapsed, dt * 1000000), 0);
             continue;
         }
@@ -308,7 +310,7 @@ static void run(void *a, void *b, void *c) {
             sk_haptic_step(&haptic, -raw, fminf(fmaxf(dt, .0001f), .02f));
             gates_off();
         }
-        uint32_t elapsed = k_cyc_to_us_floor64(k_cycle_get_64() - begin);
+        uint32_t elapsed = k_cyc_to_us_floor64((uint32_t)(k_cycle_get_32() - begin));
         snapshot(fmaxf(elapsed, dt * 1000000), q);
         if (elapsed > 3000 && atomic_get(&enabled))
             fault(FAULT_TIMING);
