@@ -6,6 +6,17 @@ The firmware cross-compiles for ESP32-S3. The editor, shared renderer, model, an
 
 [View editor screenshots and SmartKnob display previews](docs/screenshots/README.md).
 
+## Hosted editor
+
+The GitHub Pages deployment target is **https://nlindahl.github.io/smart-knob/**.
+The `Deploy editor to Pages` workflow builds both WASM modules, checks them under the
+`/smart-knob/` URL prefix, and deploys the static site on pushes to `main` or manual runs.
+GitHub Pages must be enabled with **GitHub Actions** as the source in
+[Settings → Pages](https://github.com/nlindahl/smart-knob/settings/pages).
+The hosted editor supports USB in desktop Chrome/Edge over HTTPS. Project data stays
+in browser local storage; export JSON to transfer projects between the hosted site
+and localhost, which use separate browser storage origins.
+
 ## Use the prebuilt editor
 
 The delivery archive includes `web/pkg`, `web/preview.js`, and `web/preview.wasm`. From the extracted project:

@@ -1,0 +1,80 @@
+name: Deploy editor to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-bindgen
+            target
+          key: pages-${{ runner.os }}-rust1.99-bindgen0.2.129-${{ hashFiles('Cargo.lock') }}
+      - name: Install build tools
+        run: |
+          pip install cmake==4.4.4 ninja==1.13.2
+          if ! command -v wasm-bindgen >/dev/null; then
+            cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          fi
+          git clone --depth 1 --branch v9.6.0 https://github.com/lvgl/lvgl ../lvgl
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.12
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.12
+      - name: Build and package editor
+        env:
+          LVGL_DIR: ../lvgl
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          scripts/build-web.sh
+          python3 scripts/package-pages.py
+      - name: Verify repository-prefixed hosting
+        run: |
+          npm ci --prefix tests
+          npm exec --prefix tests -- playwright install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/pages-preview"
+          ln -s "$GITHUB_WORKSPACE/build-pages" "$RUNNER_TEMP/pages-preview/smart-knob"
+          python3 -m http.server 8081 --bind 127.0.0.1 --directory "$RUNNER_TEMP/pages-preview" &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8081/smart-knob/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/pages.mjs
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: build-pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6.0.0
+      - name: Deploy editor
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
