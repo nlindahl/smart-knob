@@ -1,25 +1,63 @@
 #include "hardware.h"
 #include <math.h>
+#include <string.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/sys/atomic.h>
+#include <zephyr/sys/printk.h>
 static const struct spi_dt_spec encoder =
     SPI_DT_SPEC_GET(DT_NODELABEL(encoder), SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_MODE_CPHA);
 static const struct gpio_dt_spec strain_data = GPIO_DT_SPEC_GET(DT_NODELABEL(strain_data), gpios);
 static const struct gpio_dt_spec strain_clock = GPIO_DT_SPEC_GET(DT_NODELABEL(strain_clock), gpios);
+static struct k_spinlock encoder_lock;
+static struct {
+    uint32_t reads, valid, spi_errors, crc_errors, status_errors;
+    int spi_rc;
+    uint8_t raw[3], expected_crc;
+} encoder_diag;
 int encoder_init(void) {
     return spi_is_ready_dt(&encoder) ? 0 : -ENODEV;
 }
 int encoder_read(float *angle) {
-    uint8_t bytes[3];
+    uint8_t bytes[3] = {0};
     struct spi_buf buffer = {.buf = bytes, .len = 3};
     struct spi_buf_set rx = {.buffers = &buffer, .count = 1};
     int rc = spi_read_dt(&encoder, &rx);
+    uint8_t expected_crc = sk_mt6701_crc6(bytes);
+    bool valid = !rc && sk_mt6701_decode(bytes, angle);
+    k_spinlock_key_t key = k_spin_lock(&encoder_lock);
+    encoder_diag.reads++;
+    encoder_diag.spi_rc = rc;
+    memcpy(encoder_diag.raw, bytes, sizeof(bytes));
+    encoder_diag.expected_crc = expected_crc;
+    if (rc)
+        encoder_diag.spi_errors++;
+    else if (expected_crc != (bytes[2] & 63))
+        encoder_diag.crc_errors++;
+    else if (!valid)
+        encoder_diag.status_errors++;
+    else
+        encoder_diag.valid++;
+    k_spin_unlock(&encoder_lock, key);
     if (rc)
         return rc;
-    if (!sk_mt6701_decode(bytes, angle))
+    if (!valid)
         return -EIO;
     return 0;
+}
+size_t encoder_diagnostic_text(char *out, size_t size) {
+    if (!size)
+        return 0;
+    k_spinlock_key_t key = k_spin_lock(&encoder_lock);
+    __typeof__(encoder_diag) d = encoder_diag;
+    k_spin_unlock(&encoder_lock, key);
+    int written = snprintk(out, size,
+                           "Encoder: spi_rc=%d raw=%02X%02X%02X crc=%02X/%02X "
+                           "loss=%u field=%u reads=%u valid=%u spi_err=%u crc_err=%u status_err=%u",
+                           d.spi_rc, d.raw[0], d.raw[1], d.raw[2], d.raw[2] & 63, d.expected_crc,
+                           (d.raw[1] >> 1) & 1, (d.raw[2] >> 6) & 3, d.reads, d.valid, d.spi_errors,
+                           d.crc_errors, d.status_errors);
+    return written > 0 ? MIN((size_t)written, size - 1) : 0;
 }
 K_MSGQ_DEFINE(press_events, sizeof(uint8_t), 16, 1);
 static atomic_t tare_requested, strain_fault;

@@ -84,6 +84,7 @@ void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t po
                    float sub_position, uint32_t ms, uint32_t flash_until, sk_rgb out[SK_LED_COUNT]);
 void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3]);
 bool sk_mt6701_decode(const uint8_t bytes[3], float *angle);
+uint8_t sk_mt6701_crc6(const uint8_t bytes[3]);
 void sk_pwm_compare(float duty, unsigned peak, unsigned dead, unsigned *a, unsigned *b);
 #ifdef __cplusplus
 }

@@ -1,5 +1,12 @@
 # Validation — 2026-10-14
 
+## Encoder diagnostics — 2026-10-20
+
+- Added read-only encoder diagnostics to distinguish SPI failures, CRC errors, and rejected sensor status, without relaxing encoder checks or clearing motor faults.
+- Control-loop telemetry now records failed-read timing instead of reporting zero until a successful read occurs.
+- Local firmware cross-build succeeds. Core tests cover CRC-valid rejected status bits; WASM Clippy, browser diagnostic polling/older-firmware compatibility, and editor startup checks pass.
+- This diagnostic build has not been exercised on hardware; the reported encoder fault's underlying cause requires a raw sensor report from the device.
+
 ## Browser installer — 2026-10-20
 
 - Firmware packager: eight tests cover the manifest/checksums, runner offset, saved-data layout, wrong chip, oversized writes, unsafe versions, corrupt image checksums, and unsupported MCUboot layouts. The existing 500,564-byte ESP32-S3 cross-built image also passes packaging checks.

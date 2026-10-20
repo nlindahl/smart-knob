@@ -33,6 +33,7 @@ mod browser {
         pub fn command(op: u8, payload: &[u8]);
         pub fn status() -> String;
         pub fn telemetry() -> js_sys::Float32Array;
+        pub fn diagnostics() -> String;
     }
     #[wasm_bindgen]
     pub async fn start(canvas_id: &str) -> Result<(), JsValue> {

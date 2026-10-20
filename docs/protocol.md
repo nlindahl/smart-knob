@@ -59,6 +59,7 @@ Payload is at most 512 bytes. Frame CRC covers `version` through the final paylo
 | 9 SAVE | empty | empty; uploaded project persisted |
 | 10 STOP | empty | empty; motor stop requested |
 | 11 ENABLE | empty | empty; valid calibration required |
+| 12 ENCODER_DIAGNOSTICS | empty | Read-only encoder diagnostic text; older firmware returns invalid request |
 
 BEGIN resets the staging transfer. CHUNK must match the exact next offset. COMMIT checks size, whole-file CRC, bundle header/CRC, schema, and references before swapping the project. Interrupted or rejected transfers preserve the active project. SAVE is separate so repeated interactive tests avoid flash writes. It can save the current boot-loaded bundle; factory demo views must first be uploaded to create a persistable bundle. Calibration is persisted independently.
 

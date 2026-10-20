@@ -2,6 +2,7 @@ import createPreview from './preview.js';
 let preview, ptr = 0, last = new Uint8Array(), imported = '', message = 'USB disconnected', port;
 let reader, writer, input = [], sequence = 1, pending = new Map(), busy = false, state = [];
 let receiveTask, disconnecting = false;
+let diagnostic = '', diagnosticAt = 0, diagnosticsAvailable = true;
 export const ready = createPreview().then(m => { preview = m; preview._sk_preview_init(); ptr = preview._malloc(24576); });
 function load(bytes, view) {
   if (bytes.length !== last.length || bytes.some((b, i) => b !== last[i])) {
@@ -105,6 +106,7 @@ async function connect() {
     port = await navigator.serial.requestPort();
     try { await port.open({baudRate:115200,bufferSize:16384}); } catch (e) { port = undefined; throw e; }
     input = []; state = []; disconnecting = false; writer = port.writable.getWriter();
+    diagnostic = ''; diagnosticAt = 0; diagnosticsAvailable = true;
     receiveTask = receive();
     const name = new TextDecoder().decode(await call(1));
     message = name;
@@ -118,6 +120,14 @@ setInterval(async () => {
     if (bytes.length === 28) {
       const d = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
       state = [d.getUint16(0,true),d.getInt32(2,true),d.getFloat32(6,true),bytes[10],bytes[11],d.getFloat32(16,true),d.getFloat32(20,true),d.getUint16(24,true)];
+      if ((bytes[10] & 1) && diagnosticsAvailable && Date.now() - diagnosticAt >= 2000) {
+        diagnosticAt = Date.now();
+        try { diagnostic = new TextDecoder().decode(await call(12)); }
+        catch (e) {
+          if (e.message === 'Device: invalid request') diagnosticsAvailable = false;
+          else throw e;
+        }
+      }
     }
   } catch (e) { message = e.message; } finally { busy = false; }
 },500);
@@ -143,4 +153,5 @@ globalThis.smartknob = {
   command(op,bytes) { const data=bytes.slice(); withDevice(async () => { await call(op,data); message=op===7 ? 'Calibration started; leave the knob untouched' : 'Command accepted'; }); },
   status() { return message; },
   telemetry() { return Float32Array.from(state); },
+  diagnostics() { return diagnostic; },
 };

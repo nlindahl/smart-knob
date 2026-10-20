@@ -253,7 +253,8 @@ static void run(void *a, void *b, void *c) {
             gates_off();
             if (++bad_samples >= 3)
                 fault(FAULT_ENCODER);
-            snapshot(0, 0);
+            uint32_t elapsed = k_cyc_to_us_floor64(k_cycle_get_64() - begin);
+            snapshot(fmaxf(elapsed, dt * 1000000), 0);
             continue;
         }
         bad_samples = 0;

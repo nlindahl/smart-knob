@@ -128,6 +128,16 @@ int main(void) {
     assert(sk_mt6701_decode(zero_frame, &angle) && angle == 0);
     const uint8_t quarter_frame[3] = {0x40, 0, 0x35};
     assert(sk_mt6701_decode(quarter_frame, &angle) && fabsf(angle - SK_PI / 2) < .0001f);
+    assert(sk_mt6701_crc6(quarter_frame) == 0x35);
+    /* CRC-valid fault flags must remain rejected; diagnostics must not bypass safety. */
+    for (unsigned flags = 1; flags < 16; flags++) {
+        if (flags == 4) /* Push bit alone is not an error. */
+            continue;
+        uint32_t raw = flags << 6;
+        uint8_t flagged[3] = {raw >> 16, raw >> 8, raw};
+        flagged[2] |= sk_mt6701_crc6(flagged);
+        assert(!sk_mt6701_decode(flagged, &angle));
+    }
     for (unsigned bit = 0; bit < 24; bit++) {
         uint8_t corrupt[3];
         memcpy(corrupt, quarter_frame, 3);

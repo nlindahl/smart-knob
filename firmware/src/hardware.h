@@ -29,6 +29,7 @@ bool motor_calibration_dirty(void);
 void motor_calibration_saved(void);
 int encoder_init(void);
 int encoder_read(float *angle);
+size_t encoder_diagnostic_text(char *out, size_t size);
 int strain_start(void);
 bool strain_tare(void);
 uint8_t strain_event(void); /* 1 press, 2 release, 3 long, 4 long release */

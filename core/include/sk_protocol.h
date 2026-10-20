@@ -13,7 +13,8 @@ enum sk_op {
     SK_TARE,
     SK_SAVE,
     SK_STOP,
-    SK_ENABLE
+    SK_ENABLE,
+    SK_ENCODER_DIAGNOSTICS
 };
 enum sk_status { SK_OK, SK_INVALID, SK_BUSY, SK_BAD_BUNDLE, SK_STORAGE, SK_HARDWARE };
 typedef struct {

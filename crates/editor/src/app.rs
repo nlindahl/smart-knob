@@ -596,6 +596,13 @@ impl Editor {
                                 "Faults: {} · calibration: {} · max loop: {:.0} µs",
                                 state[3], state[4], state[6]
                             ));
+                            if state[3] as u8 & 1 != 0 {
+                                ui.small("Encoder read fault: motor disabled until valid readings return and the fault is cleared.");
+                                let diagnostic = super::browser::diagnostics();
+                                if !diagnostic.is_empty() {
+                                    ui.add(egui::Label::new(diagnostic).selectable(true));
+                                }
+                            }
                             if self.follow_device
                                 && let Some(i) = self
                                     .project

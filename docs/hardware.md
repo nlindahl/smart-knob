@@ -37,6 +37,19 @@ FOC operates in **voltage mode**, with a 5 V supply assumption and a hard ±2 V 
 
 Fault bits: encoder=1, timing=2, motor/calibration=4, strain=8, LED=16, storage=32, display-write=64. Motor faults are latched. Strain and LED flags reflect current adapter state. Storage errors are reported and RAM operation remains available.
 
+### Encoder fault diagnosis
+
+`Faults: 1` means the control loop rejected at least three consecutive encoder reads and turned the motor gates off. `calibration: 0` means no valid calibration is stored; calibrating cannot fix invalid encoder input. Older builds reported `max loop: 0 µs` on this path because failed reads skipped the timing measurement, not because the control thread was stopped. New builds record timing on failed reads too.
+
+Studio requests read-only diagnostic opcode 12 when an encoder fault is present. The original 28-byte state reply is unchanged, and Studio tolerates older firmware without opcode 12. The diagnostic line shows the last SPI result, raw 24-bit SSI frame, received/expected CRC-6, loss-of-track and magnetic-field status, plus read/valid/SPI-error/CRC-error/status-error counters. Values are copied under a spinlock; requests do not initiate SPI transfers or motor motion.
+
+- Nonzero `spi_rc` and increasing `spi_err`: the Zephyr SPI transfer itself failed.
+- `spi_rc=0` with increasing `crc_err`: frames arrived but failed CRC; inspect SSI timing, CS, and data/clock pins.
+- Matching CRC with increasing `status_err`: the sensor reports loss of tracking or a nonzero magnetic-field status. Inspect the raw status and magnet alignment before changing acceptance criteria.
+- Increasing `valid` after recovery with fault bit 1 still set: the encoder fault is latched. Only clear it through calibration/enable after validating the readings and completing bring-up.
+
+The original Seedlabs firmware accepts CRC-valid frames without rejecting magnetic-status flags. This implementation currently rejects loss-of-track and nonzero field status. Capture the diagnostic line before deciding whether the stricter policy explains a fault; do not disable CRC/status checks as a troubleshooting shortcut.
+
 View bundles use NVS ID 1; calibration uses ID 2. The NVS partition occupies `0xF00000`–`0xF3FFFF` (256 KiB) in the 16 MB flash. It uses eight 32 KiB sectors with NVS data CRC enabled. Each view bundle has a second CRC and undergoes full validation before application. This layout and calibration format differ from factory firmware.
 
 The release's compiled artifacts and host/browser tests are recorded in `VALIDATION.md`. Hardware timing, haptic tuning, load-cell thresholds, and recovery under real power loss are remaining validation work.
