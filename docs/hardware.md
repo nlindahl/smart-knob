@@ -51,6 +51,8 @@ Studio requests read-only diagnostic opcode 12 every two seconds while connected
 
 The original Seedlabs firmware accepts CRC-valid frames without rejecting magnetic-status flags. The first Zephyr builds rejected every nonzero field indication. A Dev Kit report (`raw=48D4A4 crc=24/24 loss=0 field=2`, zero SPI/CRC errors) confirmed that this policy caused valid angles with weak-field warnings to be rejected. Current firmware accepts CRC-valid weak/strong-field frames, while still rejecting loss of tracking and reserved field status. It does not automatically clear existing latched faults or stored calibration. Reboot after updating, verify passive rotation and increasing `valid`, then perform the normal calibration procedure.
 
+Diagnostics also retain the most recent rejected frame as `last_bad`, with `reason` (`spi`, `crc`, `loss`, or `reserved`) and `age_ms`. `reason=none` means no rejected read since boot. This distinguishes a currently good reading from the earlier failure that latched fault 1. Compare `status_err` over time to see whether failures are ongoing. Enable requires calibration state 2; its `hardware unavailable` response with state 0 does not by itself indicate a failed motor driver.
+
 View bundles use NVS ID 1; calibration uses ID 2. The NVS partition occupies `0xF00000`–`0xF3FFFF` (256 KiB) in the 16 MB flash. It uses eight 32 KiB sectors with NVS data CRC enabled. Each view bundle has a second CRC and undergoes full validation before application. This layout and calibration format differ from factory firmware.
 
 The release's compiled artifacts and host/browser tests are recorded in `VALIDATION.md`. Hardware timing, haptic tuning, load-cell thresholds, and recovery under real power loss are remaining validation work.
