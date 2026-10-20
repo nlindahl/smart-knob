@@ -4,6 +4,8 @@ Zephyr firmware for the **Seedlabs SmartKnob Dev Kit v0.1**, with an LVGL UI and
 
 The firmware cross-compiles for ESP32-S3. The editor, shared renderer, model, and serial protocol have automated tests. **Physical hardware operation has not been validated in this workspace.** Follow [hardware bring-up](docs/hardware.md) before treating this as a replacement for the factory firmware.
 
+[View editor screenshots and SmartKnob display previews](docs/screenshots/README.md).
+
 ## Use the prebuilt editor
 
 The delivery archive includes `web/pkg`, `web/preview.js`, and `web/preview.wasm`. From the extracted project:

@@ -10,5 +10,6 @@
 *.skv
 *.ppm
 *.png
+!docs/screenshots/*.png
 __pycache__/
 node_modules/
