@@ -13,3 +13,4 @@
 !docs/screenshots/*.png
 __pycache__/
 node_modules/
+/smartknob-devkit-v0.1-*.zip
