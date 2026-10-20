@@ -1,0 +1,39 @@
+name: Release firmware downloads
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    uses: ./.github/workflows/firmware.yml
+
+  release:
+    needs: firmware
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: firmware-download
+          path: artifacts
+      - name: Publish versioned firmware archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > "$RUNNER_TEMP/firmware-release-notes.md" <<'NOTES'
+          Firmware for the Seedlabs SmartKnob Dev Kit v0.1 (ESP32-S3, 16 MB).
+
+          Hardware testing is pending. Compilation and automated checks do not establish physical motor, LED, display, or recovery behavior.
+
+          The archive includes firmware.bin, an ESP Web Tools manifest, source revision metadata, SHA-256 checksums, and backup/recovery commands. Extract it and run `sha256sum -c SHA256SUMS` before command-line flashing. Normal writes preserve this project's current NVS layout; full erase removes views and calibration. Factory configuration is incompatible.
+
+          Hardware bring-up: https://github.com/nlindahl/smart-knob/blob/main/docs/hardware.md
+          Browser installer for the latest main build: https://nlindahl.github.io/smart-knob/install.html
+          NOTES
+          gh release create "$GITHUB_REF_NAME" artifacts/*.zip --verify-tag --title "SmartKnob $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/firmware-release-notes.md"

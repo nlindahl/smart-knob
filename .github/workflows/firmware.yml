@@ -1,0 +1,54 @@
+name: Build installable firmware
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: smart-knob
+      - name: Identify firmware build
+        id: version
+        working-directory: smart-knob
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="dev-$(git rev-parse --short=12 HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: pip install -r smart-knob/requirements-dev.txt
+      - run: python3 smart-knob/tests/firmware_package.py
+      - run: west init -l smart-knob && west update --narrow -o=--depth=1
+      - run: pip install -r zephyr/scripts/requirements-base.txt
+      - run: west blobs fetch hal_espressif
+      - run: west sdk install --version 1.0.1 --gnu-toolchains xtensa-espressif_esp32s3_zephyr-elf
+      - run: west build -b esp32s3_devkitc/esp32s3/procpu smart-knob/firmware -d smart-knob/build-firmware
+      - name: Package validated firmware
+        working-directory: smart-knob
+        env:
+          FIRMWARE_VERSION: ${{ steps.version.outputs.version }}
+        run: python3 scripts/package-firmware.py --version "$FIRMWARE_VERSION" --commit "$(git rev-parse HEAD)"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: firmware-site
+          path: smart-knob/build-firmware-package/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: firmware-download
+          path: smart-knob/smartknob-devkit-v0.1-*.zip
+          if-no-files-found: error
+          retention-days: 90

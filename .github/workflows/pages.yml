@@ -13,7 +13,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  firmware:
+    uses: ./.github/workflows/firmware.yml
+
   build:
+    needs: firmware
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -45,6 +49,12 @@ jobs:
         run: |
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
           scripts/build-web.sh
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: firmware-site
+          path: build-firmware-package
+      - name: Package editor and matching firmware
+        run: |
           python3 scripts/package-pages.py
       - name: Verify repository-prefixed hosting
         run: |
@@ -60,6 +70,7 @@ jobs:
             sleep 1
           done
           node tests/pages.mjs
+          node tests/installer.mjs
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: build-pages
