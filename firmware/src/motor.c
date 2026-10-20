@@ -16,18 +16,22 @@
 static const uint8_t pins[6] = {8, 16, 18, 7, 17, 15};
 static mcpwm_dev_t *pwm;
 static const struct device *gpio = DEVICE_DT_GET(DT_NODELABEL(gpio0));
-static bool pwm_ready;
+static bool pwm_ready, pwm_enabled;
 static void gates_off(void) {
-    if (!pwm_ready)
+    if (!pwm_ready || !pwm_enabled)
         return;
     for (int phase = 0; phase < 3; phase++)
         for (int gen = 0; gen < 2; gen++)
             mcpwm_ll_gen_set_continue_force_level(pwm, phase, gen, 0);
+    pwm_enabled = false;
 }
 static void gates_on(void) {
+    if (!pwm_ready || pwm_enabled)
+        return;
     for (int phase = 0; phase < 3; phase++)
         for (int gen = 0; gen < 2; gen++)
             mcpwm_ll_gen_disable_continue_force_action(pwm, phase, gen);
+    pwm_enabled = true;
 }
 static void duties(const float duty[3]) {
     unsigned dead = (CONFIG_SK_MOTOR_DEADTIME_NS * 160u + 999u) / 1000u;
@@ -148,7 +152,7 @@ static void drive(float q, float d, float angle) {
     duties(duty);
     gates_on();
 }
-static void calibration_step(float raw) {
+static void calibration_step(float raw, float feedback_angle) {
     /* Align d-axis, sweep three electrical turns, measure pole pairs, then
      * return to electrical zero. This state machine never blocks the loop. */
     calibration_tick++;
@@ -212,7 +216,7 @@ static void calibration_step(float raw) {
             k_spin_unlock(&status_lock, key);
             atomic_set(&dirty, 1);
             calib_phase = 0;
-            sk_haptic_init(&haptic, &haptic.config, -raw);
+            sk_haptic_init(&haptic, &haptic.config, -feedback_angle);
             gates_off();
         }
     }
@@ -228,6 +232,8 @@ static void run(void *a, void *b, void *c) {
     /* The Xtensa timer has a 32-bit CCOUNT, not a 64-bit cycle counter.
      * Unsigned deltas handle its wrap every ~17.9 s at 240 MHz. */
     uint32_t last = k_cycle_get_32();
+    uint32_t last_good = last;
+    sk_angle_filter angle_filter = {0};
     sk_encoder_health encoder_health = {0};
     while (true) {
         k_sem_take(&control_tick, K_FOREVER);
@@ -250,6 +256,8 @@ static void run(void *a, void *b, void *c) {
             last = k_cycle_get_32();
             dt = .001f;
             encoder_health = (sk_encoder_health){0};
+            last_good = begin;
+            angle_filter.initialized = false;
         }
         int rc = encoder_read(&raw);
         bool latch_encoder = sk_encoder_should_latch(&encoder_health, rc == 0, k_uptime_get_32());
@@ -262,11 +270,16 @@ static void run(void *a, void *b, void *c) {
             snapshot(fmaxf(elapsed, dt * 1000000), 0);
             continue;
         }
+        float sample_dt = (float)k_cyc_to_us_floor64((uint32_t)(begin - last_good)) / 1000000;
+        last_good = begin;
+        if (sample_dt <= 0)
+            sample_dt = dt;
+        float feedback_angle = sk_feedback_angle(&angle_filter, raw, sample_dt);
         motor_command cmd;
         while (!k_msgq_get(&commands, &cmd, K_NO_WAIT)) {
             if (cmd.type == CMD_CONFIG) {
                 if (!calib_phase)
-                    sk_haptic_init(&haptic, &cmd.config, -raw);
+                    sk_haptic_init(&haptic, &cmd.config, -feedback_angle);
             } else if (cmd.type == CMD_PULSE) {
                 if (!calib_phase)
                     sk_haptic_pulse(&haptic, cmd.press, cmd.long_press);
@@ -276,7 +289,7 @@ static void run(void *a, void *b, void *c) {
                     status.faults = 0;
                     k_spin_unlock(&status_lock, key);
                     atomic_set(&enabled, 1);
-                    sk_haptic_init(&haptic, &haptic.config, -raw);
+                    sk_haptic_init(&haptic, &haptic.config, -feedback_angle);
                 }
             } else {
                 k_spinlock_key_t key = k_spin_lock(&status_lock);
@@ -295,21 +308,20 @@ static void run(void *a, void *b, void *c) {
             if (dt > .01f || dt <= 0)
                 fault(FAULT_TIMING);
             else if (calib_phase)
-                calibration_step(raw);
+                calibration_step(raw, feedback_angle);
             else if (calibration.valid) {
-                q = sk_haptic_step(&haptic, -raw, dt);
+                q = sk_haptic_step(&haptic, -feedback_angle, sample_dt);
                 /* UI clockwise sign is opposite the raw encoder sign. */
                 float voltage = -q * calibration.direction;
                 float angle = raw * calibration.pole_pairs * calibration.direction -
                               calibration.zero_electrical;
-                if (fabsf(voltage) < .001f)
-                    gates_off();
-                else
-                    drive(voltage, 0, angle);
+                /* Keep synchronous PWM at zero torque rather than repeatedly
+                 * switching between a floating motor and active drive. */
+                drive(voltage, 0, angle);
             } else
                 gates_off();
         } else {
-            sk_haptic_step(&haptic, -raw, fminf(fmaxf(dt, .0001f), .02f));
+            sk_haptic_step(&haptic, -feedback_angle, fminf(fmaxf(sample_dt, .0001f), .02f));
             gates_off();
         }
         uint32_t elapsed = k_cyc_to_us_floor64((uint32_t)(k_cycle_get_32() - begin));

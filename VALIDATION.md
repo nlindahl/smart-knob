@@ -1,5 +1,12 @@
 # Validation — 2026-10-14
 
+## Motor feedback candidate — 2026-10-20
+
+- Investigated a physical report of poor feedback/noise on Zephyr versus working stock firmware. Identified raw feedback angle, zero-torque gate toggling, and post-rejection sample-time differences in the implementation.
+- Candidate uses feedback-only angle conditioning, sample-time-aware velocity filtering, actual valid-sample intervals, and continuous neutral PWM at zero requested torque. Encoder rejection, fault handling, voltage limits, and raw commutation/calibration remain in place.
+- New core regression tests pass for jitter suppression, wrap continuity, gap reset, nonfinite input, and multi-millisecond velocity updates. Local firmware cross-build succeeds.
+- Sound and haptic feel are **not hardware-validated**. See [motor-feedback.md](docs/motor-feedback.md) for source comparison and test limitations.
+
 ## Transient encoder-rejection handling — 2026-10-20
 
 - Verified the status layout against MagnTek MT6701 Rev.1.8 section 7.8.2: the loss bit is correctly decoded. The Seedlabs driver accepts CRC-valid frames regardless of that bit, explaining why factory operation alone does not settle its meaning for this unit.

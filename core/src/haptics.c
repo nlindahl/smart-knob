@@ -61,7 +61,9 @@ float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
     float delta = remainderf(angle - s->previous_angle, SK_TAU);
     s->previous_angle = angle;
     s->unwrapped += delta;
-    s->velocity += .15f * (delta / dt - s->velocity);
+    /* Preserve the 1 kHz tuning while accounting for actual sample intervals. */
+    float velocity_alpha = dt / (.0056666667f + dt);
+    s->velocity += velocity_alpha * (delta / dt - s->velocity);
     /* Rebase absolute angles to avoid float precision loss after many turns. */
     if (fabsf(s->unwrapped) > 1000) {
         float offset = truncf(s->unwrapped / SK_TAU) * SK_TAU;

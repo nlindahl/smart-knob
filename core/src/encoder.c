@@ -1,4 +1,20 @@
 #include "sk.h"
+#include <math.h>
+float sk_feedback_angle(sk_angle_filter *filter, float raw, float dt) {
+    if (!isfinite(raw))
+        return filter->initialized ? filter->angle : 0;
+    if (!filter->initialized || !isfinite(dt) || dt <= 0 || dt > .02f) {
+        filter->angle = raw;
+        filter->initialized = true;
+    } else {
+        /* 0.4 sample weight at 1 kHz, with shortest-arc wrap handling.
+         * This conditions haptic feedback only, never commutation/calibration. */
+        float alpha = dt / (.0015f + dt);
+        filter->angle += alpha * remainderf(raw - filter->angle, SK_TAU);
+        filter->angle = remainderf(filter->angle, SK_TAU);
+    }
+    return filter->angle;
+}
 uint8_t sk_mt6701_crc6(const uint8_t bytes[3]) {
     uint32_t word = ((uint32_t)bytes[0] << 16) | ((uint32_t)bytes[1] << 8) | bytes[2];
     uint32_t bits = word >> 6;

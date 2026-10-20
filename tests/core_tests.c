@@ -69,6 +69,10 @@ static void haptics(void) {
     sk_haptic_pulse(&s, true, false);
     assert(sk_haptic_step(&s, .05f, .001f) > 0);
     assert(sk_haptic_step(&s, NAN, .001f) == 0);
+    /* A four-millisecond observation interval must not look like a one-ms jump. */
+    sk_haptic_init(&s, &c, 0);
+    sk_haptic_step(&s, .004f, .004f);
+    assert(s.velocity > .4f && s.velocity < .42f);
     c.mode = SK_MAGNETIC;
     c.detent_count = 1;
     c.detents[0] = 0;
@@ -90,6 +94,38 @@ static void haptics(void) {
     sk_foc(100, 0, 1, 5, duty);
     for (int i = 0; i < 3; i++)
         assert(duty[i] >= .02f && duty[i] <= .98f);
+}
+static void feedback_filter(void) {
+    sk_angle_filter filter = {0};
+    assert(sk_feedback_angle(&filter, 1, .001f) == 1);
+    float noise_power = 0, filtered_power = 0;
+    /* Alternating quantization/jitter at a stationary shaft: suppress noise
+     * without changing the underlying raw commutation angle. */
+    for (int i = 0; i < 1000; i++) {
+        float jitter = i % 2 ? .006f : -.006f;
+        float filtered = sk_feedback_angle(&filter, 1 + jitter, .001f) - 1;
+        if (i > 20) {
+            noise_power += jitter * jitter;
+            filtered_power += filtered * filtered;
+        }
+    }
+    assert(filtered_power < noise_power * .1f);
+    filter = (sk_angle_filter){0};
+    sk_feedback_angle(&filter, SK_TAU - .01f, .001f);
+    float angle = sk_feedback_angle(&filter, .01f, .001f);
+    assert(fabsf(remainderf(angle - (SK_TAU - .01f), SK_TAU) - .008f) < .00001f);
+    /* Long gaps reset the conditioner instead of using a stale angle. */
+    assert(sk_feedback_angle(&filter, 2, .1f) == 2);
+    assert(sk_feedback_angle(&filter, NAN, .001f) == 2);
+    /* Constant-speed rotation must remain monotonic through repeated wraps. */
+    filter = (sk_angle_filter){0};
+    float previous = sk_feedback_angle(&filter, 0, .001f);
+    for (int i = 1; i < 20000; i++) {
+        float next = sk_feedback_angle(&filter, remainderf(i * .01f, SK_TAU), .001f);
+        float delta = remainderf(next - previous, SK_TAU);
+        assert(delta > 0 && delta < .011f);
+        previous = next;
+    }
 }
 static void led_tests(void) {
     sk_led_config c = {.mode = SK_LED_PROGRESS, .brightness = 255, .color = 0xffffff, .accent = 0};
@@ -116,6 +152,7 @@ static void led_tests(void) {
     assert(leds[3].g > 0 && leds[3].r == 0);
 }
 int main(void) {
+    feedback_filter();
     sk_encoder_health health = {0};
     /* Repeated three-sample bursts must not permanently latch a healthy stream. */
     for (uint32_t ms = 0; ms < 1000; ms++)

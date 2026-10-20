@@ -86,6 +86,11 @@ void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3
 bool sk_mt6701_decode(const uint8_t bytes[3], float *angle);
 uint8_t sk_mt6701_crc6(const uint8_t bytes[3]);
 typedef struct {
+    float angle;
+    bool initialized;
+} sk_angle_filter;
+float sk_feedback_angle(sk_angle_filter *filter, float raw, float dt);
+typedef struct {
     uint32_t bad_since_ms;
     bool rejecting;
 } sk_encoder_health;
