@@ -129,14 +129,18 @@ int main(void) {
     const uint8_t quarter_frame[3] = {0x40, 0, 0x35};
     assert(sk_mt6701_decode(quarter_frame, &angle) && fabsf(angle - SK_PI / 2) < .0001f);
     assert(sk_mt6701_crc6(quarter_frame) == 0x35);
-    /* CRC-valid fault flags must remain rejected; diagnostics must not bypass safety. */
-    for (unsigned flags = 1; flags < 16; flags++) {
-        if (flags == 4) /* Push bit alone is not an error. */
-            continue;
+    /* Regression: actual Dev Kit frame with valid CRC and weak magnetic field. */
+    const uint8_t weak_frame[3] = {0x48, 0xd4, 0xa4};
+    assert(sk_mt6701_crc6(weak_frame) == 0x24);
+    assert(sk_mt6701_decode(weak_frame, &angle));
+    assert(fabsf(angle - (float)0x1235 * SK_TAU / 16384) < .0001f);
+    /* Test every status combination, including push, strength warnings, and loss. */
+    for (unsigned flags = 0; flags < 16; flags++) {
         uint32_t raw = flags << 6;
         uint8_t flagged[3] = {raw >> 16, raw >> 8, raw};
         flagged[2] |= sk_mt6701_crc6(flagged);
-        assert(!sk_mt6701_decode(flagged, &angle));
+        bool usable = !(flags & 8) && (flags & 3) != 3;
+        assert(sk_mt6701_decode(flagged, &angle) == usable);
     }
     for (unsigned bit = 0; bit < 24; bit++) {
         uint8_t corrupt[3];

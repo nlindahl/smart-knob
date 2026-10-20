@@ -120,7 +120,7 @@ setInterval(async () => {
     if (bytes.length === 28) {
       const d = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
       state = [d.getUint16(0,true),d.getInt32(2,true),d.getFloat32(6,true),bytes[10],bytes[11],d.getFloat32(16,true),d.getFloat32(20,true),d.getUint16(24,true)];
-      if ((bytes[10] & 1) && diagnosticsAvailable && Date.now() - diagnosticAt >= 2000) {
+      if (diagnosticsAvailable && Date.now() - diagnosticAt >= 2000) {
         diagnosticAt = Date.now();
         try { diagnostic = new TextDecoder().decode(await call(12)); }
         catch (e) {

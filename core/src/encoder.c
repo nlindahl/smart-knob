@@ -13,7 +13,9 @@ uint8_t sk_mt6701_crc6(const uint8_t bytes[3]) {
 }
 bool sk_mt6701_decode(const uint8_t bytes[3], float *angle) {
     uint32_t word = ((uint32_t)bytes[0] << 16) | ((uint32_t)bytes[1] << 8) | bytes[2];
-    if (sk_mt6701_crc6(bytes) != (word & 63) || (word & (1u << 9)) || ((word >> 6) & 3) != 0)
+    /* Field 1/2 warns about magnet strength; CRC-valid angle data remains usable.
+     * Keep loss-of-tracking and reserved field status 3 as hard failures. */
+    if (sk_mt6701_crc6(bytes) != (word & 63) || (word & (1u << 9)) || ((word >> 6) & 3) == 3)
         return false;
     *angle = (float)(word >> 10) * SK_TAU / 16384;
     return true;

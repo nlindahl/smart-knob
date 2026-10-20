@@ -598,10 +598,15 @@ impl Editor {
                             ));
                             if state[3] as u8 & 1 != 0 {
                                 ui.small("Encoder read fault: motor disabled until valid readings return and the fault is cleared.");
-                                let diagnostic = super::browser::diagnostics();
-                                if !diagnostic.is_empty() {
-                                    ui.add(egui::Label::new(diagnostic).selectable(true));
-                                }
+                            }
+                            let diagnostic = super::browser::diagnostics();
+                            if diagnostic.contains("field=2 ") {
+                                ui.small("Encoder warning: weak magnetic field. Check magnet alignment if tracking is unreliable.");
+                            } else if diagnostic.contains("field=1 ") {
+                                ui.small("Encoder warning: strong magnetic field. Check magnet alignment if tracking is unreliable.");
+                            }
+                            if !diagnostic.is_empty() {
+                                ui.add(egui::Label::new(diagnostic).selectable(true));
                             }
                             if self.follow_device
                                 && let Some(i) = self

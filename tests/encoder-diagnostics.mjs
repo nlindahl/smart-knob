@@ -26,7 +26,7 @@ try {
             if (op === 1) reply = new Uint8Array([0, ...new TextEncoder().encode('Test SmartKnob')]);
             if (op === 6) {
               reply = new Uint8Array(29);
-              reply[11] = 1; // Encoder fault in the original 28-byte state payload.
+              reply[11] = available ? 0 : 1; // Warnings must be visible without a hard fault.
             }
             if (op === 12) {
               window.diagnosticRequests++;
@@ -45,7 +45,7 @@ try {
     await page.waitForFunction(() => window.diagnosticRequests > 0);
     if (available) {
       await page.waitForFunction(() => smartknob.diagnostics().includes('raw=123456'));
-      assert.equal(await page.evaluate(() => smartknob.telemetry()[3]), 1);
+      assert.equal(await page.evaluate(() => smartknob.telemetry()[3]), 0);
     } else {
       await page.waitForTimeout(2500);
       assert.equal(await page.evaluate(() => window.diagnosticRequests), 1);
@@ -54,5 +54,5 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('Encoder diagnostics passed: fault polling, raw data, older-firmware compatibility');
+  console.log('Encoder diagnostics passed: warning polling without a fault, raw data, older-firmware compatibility');
 } finally { await browser.close(); }

@@ -1,5 +1,12 @@
 # Validation — 2026-10-14
 
+## Encoder field-warning correction — 2026-10-20
+
+- A physical Dev Kit report showed 17,978 reads, zero SPI/CRC errors, and 16,462 rejected status frames. Its captured `48D4A4` frame has matching CRC `24`, no tracking loss, and weak-field status 2. This identifies the decoder's fatal treatment of a strength warning as the reported fault's cause.
+- The captured frame is now a regression vector. All 16 status combinations are tested: weak/strong indications are usable with valid CRC and no tracking loss; loss, reserved status, and corrupted frames remain rejected.
+- Studio polls diagnostics even without an encoder fault and displays weak/strong-field warnings separately. Existing latched faults are not silently cleared.
+- The corrected firmware still requires physical validation on the reporting Dev Kit.
+
 ## Encoder diagnostics — 2026-10-20
 
 - Added read-only encoder diagnostics to distinguish SPI failures, CRC errors, and rejected sensor status, without relaxing encoder checks or clearing motor faults.
