@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install firmware · SmartKnob Studio</title>
+  <link rel="stylesheet" href="./install.css">
+</head>
+<body>
+  <main>
+    <nav><a href="./">← Back to editor</a><a href="https://github.com/nlindahl/smart-knob/releases">Firmware releases</a></nav>
+    <header><p class="eyebrow">SMARTKNOB STUDIO</p><h1>Install firmware</h1>
+      <p>Flash your Seedlabs SmartKnob Dev Kit v0.1 over USB.</p></header>
+    <section aria-labelledby="build-heading">
+      <h2 id="build-heading">Firmware build</h2>
+      <p class="notice">Hardware testing pending. The firmware builds and passes software checks; flashing, motor operation, LEDs, and recovery still need testing on a physical Dev Kit.</p>
+      <dl><dt>Device</dt><dd>Seedlabs Dev Kit v0.1 · ESP32-S3 · 16 MB flash</dd>
+        <dt>Version</dt><dd id="version">Loading…</dd>
+        <dt>Source</dt><dd><a id="source">Loading…</a></dd>
+        <dt>SHA-256</dt><dd><code id="checksum">Loading…</code></dd></dl>
+      <p id="status" role="status" aria-live="polite">Loading installer and verifying firmware…</p>
+      <p><a id="download" hidden download>Download firmware.bin</a> <a id="checksums" hidden>Checksums</a> <a id="manifest" hidden>Install manifest</a></p>
+      <label><input type="checkbox" id="hardware"> My device is a Seedlabs SmartKnob Dev Kit v0.1.</label>
+      <div class="actions"><esp-web-install-button id="installer" hidden>
+        <button slot="activate" id="install" disabled>Connect &amp; install</button>
+        <span slot="unsupported">Use desktop Chrome or Edge for USB flashing. You can still download firmware and use esptool.</span>
+        <span slot="not-allowed">USB flashing requires HTTPS or localhost. Download firmware for command-line installation.</span>
+      </esp-web-install-button><button id="retry" hidden>Retry loading firmware</button></div>
+      <p>Close other serial monitors and editor tabs first. Choose your knob in the USB port picker. The installation dialog shows flash progress and any errors.</p>
+    </section>
+    <section aria-labelledby="data-heading"><h2 id="data-heading">Saved data and backups</h2>
+      <p>A normal update preserves this project's saved views and motor calibration. Leave <strong>Erase device</strong> unchecked to preserve them. Selecting it erases the whole flash, including views, calibration, and factory data.</p>
+      <p>Factory firmware uses a different format; its settings cannot be imported. Before replacing it, make a full-flash backup. The browser installer cannot make this backup. Export editor projects as JSON separately.</p>
+      <details><summary>Back up and restore with esptool</summary><p>Install Python and <code>pip install esptool==5.5.0</code>. Close all USB connections and replace <code>PORT</code> with your serial port.</p>
+        <pre>esptool --chip esp32s3 --port PORT read-flash 0x0 0x1000000 smartknob-backup.bin</pre>
+        <p>Keep the 16 MB backup somewhere safe. To restore it:</p>
+        <pre>esptool --chip esp32s3 --port PORT write-flash 0x0 smartknob-backup.bin</pre>
+      </details>
+    </section>
+    <section aria-labelledby="recovery-heading"><h2 id="recovery-heading">First installation and recovery</h2>
+      <ol><li>Use a USB data cable and connect the knob. Close any serial monitor.</li>
+        <li>If the knob is missing or connection fails, use the buttons on its back: hold <strong>BOOT</strong>, press and release <strong>EN/RST</strong>, then release <strong>BOOT</strong>. Select the USB port again if it changes.</li>
+        <li>Click <strong>Connect &amp; install</strong>. Choose whether to erase and confirm the version in the dialog. Keep USB connected until installation finishes.</li>
+        <li>If USB disconnects or flashing fails, close the dialog, repeat the BOOT/EN-RST sequence, and retry. A failed write can be recovered through the ROM bootloader.</li>
+        <li>After success, close the dialog and press <strong>EN/RST</strong> if the knob stays in boot mode. Return to the editor and click <strong>Connect USB</strong>. Complete <a href="https://github.com/nlindahl/smart-knob/blob/main/docs/hardware.md">hardware bring-up and calibration</a> before enabling motor feedback.</li></ol>
+      <p>The button sequence is documented by <a href="https://github.com/SeedLabs-it/smartknob-firmware#flashing-the-firmware">Seedlabs</a>; recovery with this firmware remains untested on hardware.</p>
+      <details><summary>Install a downloaded firmware image</summary><p>Use the image and checksums from the same build. In an extracted release archive, verify and flash:</p>
+        <pre>sha256sum -c SHA256SUMS
+esptool --chip esp32s3 --port PORT write-flash 0x0 firmware.bin</pre>
+        <p>This is one Zephyr simple-boot image at offset zero. No separate bootloader or partition table is required.</p></details>
+    </section>
+    <footer>Installer: ESP Web Tools 10.4.0 · No account or server upload required.</footer>
+  </main>
+  <script type="module" src="./install.js"></script>
+</body>
+</html>

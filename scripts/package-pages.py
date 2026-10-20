@@ -10,9 +10,14 @@ site = root / "build-pages"
 if site.exists():
     shutil.rmtree(site)
 site.mkdir()
-for name in ("index.html", "bridge.js", "preview.js", "preview.wasm"):
+for name in ("index.html", "bridge.js", "preview.js", "preview.wasm", "install.html", "install.js", "install.css"):
     shutil.copy2(root / "web" / name, site / name)
 shutil.copytree(root / "web/pkg", site / "pkg")
+shutil.copytree(root / "web/dist", site / "dist")
+# Firmware is optional for local editor-only builds; CI supplies it before packaging.
+firmware = root / "build-firmware-package"
+if firmware.exists():
+    shutil.copytree(firmware, site / "firmware")
 (site / ".nojekyll").touch()
 for name in ("LICENSE.md", "THIRD_PARTY.md"):
     shutil.copy2(root / name, site / name)

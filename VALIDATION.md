@@ -1,5 +1,12 @@
 # Validation — 2026-10-14
 
+## Browser installer — 2026-10-20
+
+- Firmware packager: eight tests cover the manifest/checksums, runner offset, saved-data layout, wrong chip, oversized writes, unsafe versions, corrupt image checksums, and unsupported MCUboot layouts. The existing 500,564-byte ESP32-S3 cross-built image also passes packaging checks.
+- ESP Web Tools 10.4.0 is pinned and served locally with dependency notices. Chromium runs its actual dialog and flash orchestration while mocking only USB/chip I/O: verified bytes at offset zero, no full erase by default, USB write failure, wrong-chip rejection, checksum failure/retry, unsupported/insecure browsers, unavailable firmware, canceled port selection, and editor USB release before installer navigation.
+- Rebuilt the Rust/WASM editor; formatting and WASM Clippy pass. The Pages startup/renderer smoke test still passes with the installer changes.
+- These are software checks. No physical device was flashed, backed up, restored, or exercised. Motor, LED, display, and actual bootloader/recovery behavior still need the hardware validation below.
+
 ## Passed locally
 
 - Rust workspace: 8 unit tests, including project validation, CRC/framing, fragmented streams, upload sequencing, editor navigation, and a headless UI frame.

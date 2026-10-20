@@ -23,6 +23,7 @@ mod browser {
             long_press: bool,
         ) -> js_sys::Float32Array;
         pub fn ring() -> js_sys::Uint8Array;
+        pub fn install_firmware();
         pub fn reset();
         pub fn download(name: &str, bytes: &[u8], mime: &str);
         pub fn import_project();

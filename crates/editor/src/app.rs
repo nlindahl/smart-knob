@@ -548,6 +548,9 @@ impl Editor {
                         if ui.button("Connect USB").clicked() {
                             super::browser::connect();
                         }
+                        if ui.button("Install firmware").clicked() {
+                            super::browser::install_firmware();
+                        }
                         ui.horizontal(|ui| {
                             if ui.button("Test views").clicked() {
                                 match self.project.bundle() {

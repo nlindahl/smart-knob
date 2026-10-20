@@ -17,6 +17,22 @@ The hosted editor supports USB in desktop Chrome/Edge over HTTPS. Project data s
 in browser local storage; export JSON to transfer projects between the hosted site
 and localhost, which use separate browser storage origins.
 
+### Install firmware from your browser
+
+Open the hosted [firmware installer](https://nlindahl.github.io/smart-knob/install.html),
+or click **Install firmware** in the editor's Device panel. Use desktop Chrome/Edge
+and a USB data cable. The installer shows the exact source revision and verifies
+the firmware's SHA-256 before enabling installation. The editor releases its USB
+port before navigating to the installer; close other editor tabs and serial monitors.
+
+Normal updates preserve this project's saved views and calibration. Leave **Erase
+device** unchecked to preserve them; selecting it erases the entire flash. Factory
+settings use a different format. The installer includes full-flash backup/restore
+commands, BOOT/EN-RST recovery instructions, downloads, and a command-line fallback.
+Browser backup is not supported by ESP Web Tools. Physical flashing and operation
+remain untested; follow [hardware bring-up](docs/hardware.md) before enabling motor
+feedback. Firmware artifact details are in [firmware-packaging.md](docs/firmware-packaging.md).
+
 ## Use the prebuilt editor
 
 The delivery archive includes `web/pkg`, `web/preview.js`, and `web/preview.wasm`. From the extracted project:

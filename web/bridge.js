@@ -1,6 +1,7 @@
 import createPreview from './preview.js';
 let preview, ptr = 0, last = new Uint8Array(), imported = '', message = 'USB disconnected', port;
 let reader, writer, input = [], sequence = 1, pending = new Map(), busy = false, state = [];
+let receiveTask, disconnecting = false;
 export const ready = createPreview().then(m => { preview = m; preview._sk_preview_init(); ptr = preview._malloc(24576); });
 function load(bytes, view) {
   if (bytes.length !== last.length || bytes.some((b, i) => b !== last[i])) {
@@ -39,7 +40,7 @@ export function parse(buffer) {
 }
 async function receive() {
   try {
-    while (port?.readable) {
+    while (!disconnecting && port?.readable) {
       reader = port.readable.getReader();
       try {
         while (true) {
@@ -61,6 +62,7 @@ async function receive() {
     pending.clear();
     if (writer) { writer.releaseLock(); writer = undefined; }
     if (port) { try { await port.close(); } catch {} port = undefined; }
+    disconnecting = false;
   }
 }
 async function call(op, payload = new Uint8Array()) {
@@ -102,8 +104,8 @@ async function connect() {
     if (port) { message = 'USB already connected'; return; }
     port = await navigator.serial.requestPort();
     try { await port.open({baudRate:115200,bufferSize:16384}); } catch (e) { port = undefined; throw e; }
-    input = []; state = []; writer = port.writable.getWriter();
-    receive();
+    input = []; state = []; disconnecting = false; writer = port.writable.getWriter();
+    receiveTask = receive();
     const name = new TextDecoder().decode(await call(1));
     message = name;
   });
@@ -128,6 +130,15 @@ globalThis.smartknob = {
   import_project() { const input = document.createElement('input'); input.type='file'; input.accept='.json,application/json'; input.onchange = async () => { if (input.files[0]) { if (input.files[0].size > 262144) { message='Project file is too large'; return; } imported = await input.files[0].text(); } }; input.click(); },
   take_import() { const json = imported; imported=''; return json; },
   connect,
+  install_firmware() {
+    withDevice(async () => {
+      // No other device operation can start while the reader and port shut down.
+      disconnecting = true;
+      if (reader) await reader.cancel();
+      await receiveTask;
+      location.assign(new URL('./install.html', location.href));
+    });
+  },
   upload(bytes,save) { upload(bytes.slice(),save); },
   command(op,bytes) { const data=bytes.slice(); withDevice(async () => { await call(op,data); message=op===7 ? 'Calibration started; leave the knob untouched' : 'Command accepted'; }); },
   status() { return message; },
