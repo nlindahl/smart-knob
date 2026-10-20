@@ -19,7 +19,7 @@ for name in ("LICENSE.md", "THIRD_PARTY.md"):
 
 # Retain notices for the actual WASM dependency graph, including font licenses.
 metadata = json.loads(subprocess.check_output([
-    "cargo", "metadata", "--offline", "--locked", "--format-version", "1",
+    "cargo", "metadata", "--locked", "--format-version", "1",
     "--filter-platform", "wasm32-unknown-unknown",
 ], cwd=root))
 packages = {p["id"]: p for p in metadata["packages"]}
