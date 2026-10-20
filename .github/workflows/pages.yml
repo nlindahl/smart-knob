@@ -25,6 +25,7 @@ jobs:
         with:
           toolchain: "1.99.0"
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
       - uses: actions/cache@v6.1.0
         with:
           path: |
