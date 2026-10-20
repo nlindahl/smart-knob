@@ -85,6 +85,13 @@ void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t po
 void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3]);
 bool sk_mt6701_decode(const uint8_t bytes[3], float *angle);
 uint8_t sk_mt6701_crc6(const uint8_t bytes[3]);
+typedef struct {
+    uint32_t bad_since_ms;
+    bool rejecting;
+} sk_encoder_health;
+/* Every invalid sample must gate the motor off; only sustained rejection latches. */
+#define SK_ENCODER_LATCH_MS 20u
+bool sk_encoder_should_latch(sk_encoder_health *health, bool valid, uint32_t now_ms);
 void sk_pwm_compare(float duty, unsigned peak, unsigned dead, unsigned *a, unsigned *b);
 #ifdef __cplusplus
 }

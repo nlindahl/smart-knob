@@ -1,5 +1,11 @@
 # Validation — 2026-10-14
 
+## Transient encoder-rejection handling — 2026-10-20
+
+- Verified the status layout against MagnTek MT6701 Rev.1.8 section 7.8.2: the loss bit is correctly decoded. The Seedlabs driver accepts CRC-valid frames regardless of that bit, explaining why factory operation alone does not settle its meaning for this unit.
+- Immediate output gating on invalid readings is retained. Permanent encoder fault latching now requires 20 ms of continuous rejection rather than three rejected reads; a valid read resets only the rejection interval, not a previously latched fault.
+- Core tests cover repeated three-read bursts, sustained rejection, recovery/reset, and monotonic clock wrap. Captured loss frames remain rejected by the decoder. Burst-length diagnostics support physical validation, which remains outstanding.
+
 ## Motor cycle-counter correction — 2026-10-20
 
 - Traced zero loop-time telemetry to `k_cycle_get_64()` on the configured Xtensa timer, which lacks `CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER`. With assertions off, that API returns zero, also breaking the control-loop time interval.

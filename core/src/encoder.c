@@ -20,3 +20,14 @@ bool sk_mt6701_decode(const uint8_t bytes[3], float *angle) {
     *angle = (float)(word >> 10) * SK_TAU / 16384;
     return true;
 }
+bool sk_encoder_should_latch(sk_encoder_health *health, bool valid, uint32_t now_ms) {
+    if (valid) {
+        health->rejecting = false;
+        return false;
+    }
+    if (!health->rejecting) {
+        health->rejecting = true;
+        health->bad_since_ms = now_ms;
+    }
+    return (uint32_t)(now_ms - health->bad_since_ms) >= SK_ENCODER_LATCH_MS;
+}

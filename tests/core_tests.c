@@ -116,6 +116,23 @@ static void led_tests(void) {
     assert(leds[3].g > 0 && leds[3].r == 0);
 }
 int main(void) {
+    sk_encoder_health health = {0};
+    /* Repeated three-sample bursts must not permanently latch a healthy stream. */
+    for (uint32_t ms = 0; ms < 1000; ms++)
+        assert(!sk_encoder_should_latch(&health, ms % 25 >= 3, ms));
+    assert(!sk_encoder_should_latch(&health, false, 1000));
+    assert(!sk_encoder_should_latch(&health, false, 1019));
+    assert(sk_encoder_should_latch(&health, false, 1020));
+    assert(sk_encoder_should_latch(&health, false, 1021));
+    assert(!sk_encoder_should_latch(&health, true, 1022));
+    assert(!sk_encoder_should_latch(&health, false, 1030));
+    assert(!sk_encoder_should_latch(&health, false, 1049));
+    assert(sk_encoder_should_latch(&health, false, 1050));
+    /* Monotonic millisecond time wraps; elapsed-time latching must still work. */
+    health = (sk_encoder_health){0};
+    assert(!sk_encoder_should_latch(&health, false, UINT32_MAX - 9));
+    assert(!sk_encoder_should_latch(&health, false, 9));
+    assert(sk_encoder_should_latch(&health, false, 10));
     for (unsigned dead = 40; dead <= 240; dead += 10) {
         for (unsigned i = 0; i <= 1000; i++) {
             unsigned a, b;
@@ -134,6 +151,10 @@ int main(void) {
     assert(sk_mt6701_crc6(weak_frame) == 0x24);
     assert(sk_mt6701_decode(weak_frame, &angle));
     assert(fabsf(angle - (float)0x1235 * SK_TAU / 16384) < .0001f);
+    const uint8_t loss_frame[3] = {0x6a, 0x0a, 0x8b};
+    assert(sk_mt6701_crc6(loss_frame) == (loss_frame[2] & 63));
+    angle = 123;
+    assert(!sk_mt6701_decode(loss_frame, &angle) && angle == 123);
     /* Test every status combination, including push, strength warnings, and loss. */
     for (unsigned flags = 0; flags < 16; flags++) {
         uint32_t raw = flags << 6;

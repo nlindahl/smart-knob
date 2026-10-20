@@ -228,7 +228,7 @@ static void run(void *a, void *b, void *c) {
     /* The Xtensa timer has a 32-bit CCOUNT, not a 64-bit cycle counter.
      * Unsigned deltas handle its wrap every ~17.9 s at 240 MHz. */
     uint32_t last = k_cycle_get_32();
-    uint32_t bad_samples = 0;
+    sk_encoder_health encoder_health = {0};
     while (true) {
         k_sem_take(&control_tick, K_FOREVER);
         uint32_t begin = k_cycle_get_32();
@@ -249,17 +249,19 @@ static void run(void *a, void *b, void *c) {
         if (atomic_cas(&paused, 1, 0)) {
             last = k_cycle_get_32();
             dt = .001f;
+            encoder_health = (sk_encoder_health){0};
         }
         int rc = encoder_read(&raw);
+        bool latch_encoder = sk_encoder_should_latch(&encoder_health, rc == 0, k_uptime_get_32());
         if (rc) {
+            /* Never drive from a rejected angle, even during a transient burst. */
             gates_off();
-            if (++bad_samples >= 3)
+            if (latch_encoder)
                 fault(FAULT_ENCODER);
             uint32_t elapsed = k_cyc_to_us_floor64((uint32_t)(k_cycle_get_32() - begin));
             snapshot(fmaxf(elapsed, dt * 1000000), 0);
             continue;
         }
-        bad_samples = 0;
         motor_command cmd;
         while (!k_msgq_get(&commands, &cmd, K_NO_WAIT)) {
             if (cmd.type == CMD_CONFIG) {
