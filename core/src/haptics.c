@@ -48,6 +48,16 @@ void sk_haptic_init(sk_haptic_state *s, const sk_haptic_config *c, float angle) 
     s->center = s->unwrapped = s->previous_angle = angle;
     s->initialized = true;
 }
+sk_haptic_config sk_haptic_with_position(const sk_haptic_config *c, int32_t position) {
+    sk_haptic_config out = *c;
+    int32_t lo = -1000000, hi = 1000000;
+    if (c->mode == SK_BOUNDED || c->mode == SK_SWITCH) {
+        lo = c->min;
+        hi = c->max;
+    }
+    out.initial = position < lo ? lo : position > hi ? hi : position;
+    return out;
+}
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press) {
     /* Factory firmware plays ±5 V (press), ±1.5 V (release) and ±20 V (long),
      * all clipped by its 5 V limit; ours are clipped by SK_VOLTAGE_LIMIT. */

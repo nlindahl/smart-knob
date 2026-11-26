@@ -189,6 +189,27 @@ static size_t bundle(uint8_t *out, bool with_click, float click) {
     memcpy(out + 12, cbor, n);
     return n + 12;
 }
+static void keep_position(void) {
+    sk_haptic_config c = {.mode = SK_BOUNDED,
+                          .min = 0,
+                          .max = 10,
+                          .width_deg = 6,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f};
+    sk_haptic_config k = sk_haptic_with_position(&c, 7);
+    assert(k.initial == 7 && sk_haptic_valid(&k));
+    assert(sk_haptic_with_position(&c, 25).initial == 10);
+    assert(sk_haptic_with_position(&c, -3).initial == 0);
+    c.mode = SK_DETENT;
+    assert(sk_haptic_with_position(&c, 25).initial == 25);
+    assert(sk_haptic_with_position(&c, 5000000).initial == 1000000);
+    /* Re-initialising with the carried position keeps the reported position. */
+    sk_haptic_state h;
+    k = sk_haptic_with_position(&c, 42);
+    sk_haptic_init(&h, &k, 1.f);
+    assert(h.position == 42);
+}
 static void click_field(void) {
     uint8_t b[160];
     sk_project p;
@@ -212,6 +233,7 @@ static void click_field(void) {
 }
 int main(void) {
     click_field();
+    keep_position();
     sk_encoder_health health = {0};
     /* Repeated three-sample bursts must not permanently latch a healthy stream. */
     for (uint32_t ms = 0; ms < 1000; ms++)

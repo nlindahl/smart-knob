@@ -115,8 +115,13 @@ static bool apply(void *ctx, const uint8_t *bytes, size_t len) {
     const sk_view *new_view = sk_view_after_upload(&projects[next], view ? view->id : 0);
     bool same_view = view && new_view->id == view->id;
     bool same_haptics = same_view && sk_haptic_equal(&new_view->haptic, &view->haptic);
-    if (motor_ready && !same_haptics && !motor_configure(&new_view->haptic))
-        return false;
+    if (motor_ready && !same_haptics) {
+        /* Editing the shown view's haptics keeps the knob's position. */
+        sk_haptic_config config =
+            same_view ? sk_haptic_with_position(&new_view->haptic, s.position) : new_view->haptic;
+        if (!motor_configure(&config))
+            return false;
+    }
     active = next;
     view = new_view;
     sk_render_view(&renderer, view);

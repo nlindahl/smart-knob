@@ -87,6 +87,9 @@ void sk_project_default(sk_project *p);
 uint32_t sk_crc32(const uint8_t *data, size_t len);
 bool sk_haptic_valid(const sk_haptic_config *c);
 void sk_haptic_init(sk_haptic_state *s, const sk_haptic_config *c, float angle);
+/* c with its initial position replaced by position, clamped to its bounds,
+ * so reconfiguring a live view keeps the knob where it is. */
+sk_haptic_config sk_haptic_with_position(const sk_haptic_config *c, int32_t position);
 float sk_haptic_step(sk_haptic_state *s, float raw_angle, float dt);
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press);
 void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t position,
