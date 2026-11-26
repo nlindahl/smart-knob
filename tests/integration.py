@@ -25,6 +25,9 @@ try:
         f.write(b"SKV1" + bytes(100)); f.flush()
         run("upload", f.name, ok=False)
     assert "view=4" in run("state"), "Rejected upload changed the active view"
-    print("Rust/C integration: USB framing, upload, save, select, state, rejected upload preserves active view")
+    run("upload", str(root / "build-host/demo.skv"))
+    assert "view=4" in run("state"), "Live upload jumped away from the current view"
+    print("Rust/C integration: USB framing, upload, save, select, state, rejected upload preserves active view, "
+          "re-upload keeps the current view")
 finally:
     emulator.terminate(); emulator.wait(); os.close(master); os.close(slave)

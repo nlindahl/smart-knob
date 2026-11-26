@@ -18,6 +18,20 @@ const sk_view *sk_find_view(const sk_project *p, uint16_t id) {
             return &p->views[i];
     return NULL;
 }
+const sk_view *sk_view_after_upload(const sk_project *p, uint16_t current) {
+    const sk_view *v = sk_find_view(p, current);
+    return v ? v : sk_find_view(p, p->start_view);
+}
+bool sk_haptic_equal(const sk_haptic_config *a, const sk_haptic_config *b) {
+    if (a->mode != b->mode || a->min != b->min || a->max != b->max || a->initial != b->initial ||
+        a->width_deg != b->width_deg || a->strength != b->strength || a->endstop != b->endstop ||
+        a->snap != b->snap || a->damping != b->damping || a->detent_count != b->detent_count)
+        return false;
+    for (int i = 0; i < a->detent_count; i++)
+        if (a->detents[i] != b->detents[i])
+            return false;
+    return true;
+}
 static bool ascii(const char *s, size_t max) {
     for (size_t i = 0; i < max; i++) {
         if (!s[i])

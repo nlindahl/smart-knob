@@ -76,6 +76,12 @@ typedef struct {
 bool sk_project_decode(const uint8_t *data, size_t len, sk_project *out);
 bool sk_project_validate(const sk_project *p);
 const sk_view *sk_find_view(const sk_project *p, uint16_t id);
+/* The view to show after a new project is applied: the current view if it
+ * still exists (live editing keeps the user where they are), otherwise the
+ * project's start view. */
+const sk_view *sk_view_after_upload(const sk_project *p, uint16_t current);
+/* Whether two haptic configurations behave identically. */
+bool sk_haptic_equal(const sk_haptic_config *a, const sk_haptic_config *b);
 void sk_project_default(sk_project *p);
 uint32_t sk_crc32(const uint8_t *data, size_t len);
 bool sk_haptic_valid(const sk_haptic_config *c);

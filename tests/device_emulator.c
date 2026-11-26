@@ -24,8 +24,8 @@ static bool apply(void *ctx, const uint8_t *bytes, size_t len) {
     unsigned next = 1 - active;
     if (!sk_project_decode(bytes, len, &projects[next]))
         return false;
+    view_id = sk_view_after_upload(&projects[next], view_id)->id;
     active = next;
-    view_id = projects[active].start_view;
     return true;
 }
 static bool save(void *ctx, const uint8_t *bytes, size_t len) {

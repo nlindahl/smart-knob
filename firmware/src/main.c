@@ -110,13 +110,17 @@ static bool apply(void *ctx, const uint8_t *bytes, size_t len) {
     unsigned next = 1 - active;
     if (!sk_project_decode(bytes, len, &projects[next]))
         return false;
-    const sk_view *new_view = sk_find_view(&projects[next], projects[next].start_view);
-    if (motor_ready && !motor_configure(&new_view->haptic))
+    /* Stay on the current view so live edits don't jump around, and only
+     * reconfigure the motor (which resets position) if its haptics changed. */
+    const sk_view *new_view = sk_view_after_upload(&projects[next], view ? view->id : 0);
+    bool same_view = view && new_view->id == view->id;
+    bool same_haptics = same_view && sk_haptic_equal(&new_view->haptic, &view->haptic);
+    if (motor_ready && !same_haptics && !motor_configure(&new_view->haptic))
         return false;
     active = next;
     view = new_view;
     sk_render_view(&renderer, view);
-    if (view->leds.mode_flash)
+    if (!same_view && view->leds.mode_flash)
         flash_until = k_uptime_get_32() + 180;
     return true;
 }

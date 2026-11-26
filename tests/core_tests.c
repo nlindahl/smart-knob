@@ -239,6 +239,22 @@ int main(void) {
                                  policy) == (policy == SK_LOSS_ACCEPT));
     }
     assert(sk_crc32((const uint8_t *)"123456789", 9) == 0xcbf43926);
+    /* Uploads keep the current view if it still exists, else the start view. */
+    sk_project_default(&project);
+    assert(sk_view_after_upload(&project, 4)->id == 4);
+    assert(sk_view_after_upload(&project, 99)->id == project.start_view);
+    assert(sk_view_after_upload(&project, 0)->id == project.start_view);
+    {
+        sk_haptic_config a = project.views[1].haptic, b = a;
+        assert(sk_haptic_equal(&a, &b));
+        b.strength = .7f;
+        assert(!sk_haptic_equal(&a, &b));
+        b = project.views[4].haptic;
+        sk_haptic_config m = b;
+        assert(sk_haptic_equal(&b, &m));
+        m.detents[2] = 11;
+        assert(!sk_haptic_equal(&b, &m));
+    }
     sk_project_default(&project);
     assert(sk_project_validate(&project));
     project.views[0].on_press = 999;
