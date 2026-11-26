@@ -49,8 +49,18 @@ void sk_haptic_init(sk_haptic_state *s, const sk_haptic_config *c, float angle) 
     s->initialized = true;
 }
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press) {
+    /* Factory firmware plays ±5 V (press), ±1.5 V (release) and ±20 V (long),
+     * all clipped by its 5 V limit; ours are clipped by SK_VOLTAGE_LIMIT. */
     s->pulse_ticks = long_press ? 12 : 6;
-    s->pulse_strength = long_press ? 1.2f : (pressed ? .7f : .35f);
+    s->pulse_half = s->pulse_ticks / 2;
+    s->pulse_strength = long_press ? SK_VOLTAGE_LIMIT : (pressed ? SK_VOLTAGE_LIMIT : 1.5f);
+}
+/* Detent "click" gain in V·s/rad, as in the factory firmware: fine detents
+ * need more derivative action because their spring torque is small. */
+static float click_gain(const sk_haptic_config *c) {
+    const float lo = 3, hi = 8, at_lo = .08f, at_hi = .02f;
+    float t = clamp((c->width_deg - lo) / (hi - lo), 0, 1);
+    return c->strength * (at_lo + (at_hi - at_lo) * t);
 }
 float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
     if (!s->initialized || !isfinite(angle) || !isfinite(dt) || dt <= 0 || dt > .02f) {
@@ -102,18 +112,21 @@ float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
     float q = -4 * strength * active_error;
     if (!at_stop && (c->mode == SK_FREE || !magnetic))
         q = 0;
-    else
-        q -= c->damping * .03f * s->velocity;
+    else {
+        /* Magnetic detents skip the click term, which would add clicks between them. */
+        float d = c->mode == SK_MAGNETIC ? 0 : click_gain(c);
+        q -= (d + c->damping * .03f) * s->velocity;
+    }
     if (s->pulse_ticks) {
-        uint16_t midpoint = s->pulse_strength > 1 ? 6 : 3;
-        q += s->pulse_ticks > midpoint ? s->pulse_strength : -s->pulse_strength;
+        q += s->pulse_ticks > s->pulse_half ? s->pulse_strength : -s->pulse_strength;
         s->pulse_ticks--;
     }
     if (fabsf(s->velocity) > 60)
         q = 0;
     /* Voltage-mode FOC, no current sensing on the kit. Keep a hard limit. */
-    float target = clamp(q, -2, 2);
-    s->voltage += clamp(target - s->voltage, -1000 * dt, 1000 * dt);
+    float target = clamp(q, -SK_VOLTAGE_LIMIT, SK_VOLTAGE_LIMIT);
+    /* 10 V/ms slew, as the factory PID output ramp; fast enough for 3 ms pulses. */
+    s->voltage += clamp(target - s->voltage, -10000 * dt, 10000 * dt);
     return s->voltage;
 }
 void sk_foc(float q, float d, float a, float supply, float duty[3]) {
@@ -125,6 +138,12 @@ void sk_foc(float q, float d, float a, float supply, float duty[3]) {
     float beta = d * sinf(a) + q * cosf(a);
     float phases[3] = {alpha, -.5f * alpha + .8660254038f * beta,
                        -.5f * alpha - .8660254038f * beta};
+    /* Center the min/max of the three phases (zero-sequence injection). The
+     * star point floats, so this changes no line voltage but extends the
+     * linear range from supply/2 to supply/sqrt(3), like SVPWM. */
+    float hi = fmaxf(phases[0], fmaxf(phases[1], phases[2]));
+    float lo = fminf(phases[0], fminf(phases[1], phases[2]));
+    float shift = (hi + lo) / 2;
     for (int i = 0; i < 3; i++)
-        duty[i] = clamp(.5f + phases[i] / supply, .02f, .98f);
+        duty[i] = clamp(.5f + (phases[i] - shift) / supply, .02f, .98f);
 }

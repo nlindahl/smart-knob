@@ -60,7 +60,7 @@ static void haptics(void) {
         sk_haptic_step(&s, .01f * i, .001f);
     assert(s.position == 2);
     assert(s.sub_position > 0);
-    assert(s.voltage < 0 && s.voltage >= -2);
+    assert(s.voltage < 0 && s.voltage >= -SK_VOLTAGE_LIMIT);
     sk_haptic_init(&s, &c, 0);
     assert(sk_haptic_step(&s, -.05f, .001f) > 0);
     c.mode = SK_FREE;
@@ -90,6 +90,15 @@ static void haptics(void) {
     sk_foc(100, 0, 1, 5, duty);
     for (int i = 0; i < 3; i++)
         assert(duty[i] >= .02f && duty[i] <= .98f);
+    /* The hard limit stays in the linear modulation range at every angle. */
+    for (int i = 0; i < 360; i++) {
+        float a = i * SK_PI / 180;
+        sk_foc(SK_VOLTAGE_LIMIT, 0, a, 5, duty);
+        float alpha = (2.0f / 3) * (duty[0] - .5f * duty[1] - .5f * duty[2]) * 5;
+        float beta = (duty[1] - duty[2]) / sqrtf(3) * 5;
+        assert(fabsf(hypotf(alpha, beta) - SK_VOLTAGE_LIMIT) < .01f);
+        assert(fabsf(remainderf(atan2f(beta, alpha) - a - SK_PI / 2, SK_TAU)) < .01f);
+    }
 }
 static void led_tests(void) {
     sk_led_config c = {.mode = SK_LED_PROGRESS, .brightness = 255, .color = 0xffffff, .accent = 0};

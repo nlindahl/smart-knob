@@ -266,13 +266,55 @@ static void detents_count(void) {
     /* Encoder direction +1: UI position increases as the raw angle decreases. */
     assert(m.haptic.position < 0);
 }
+/* Fine detents use the strongest derivative "click" term; with encoder
+ * quantization and one-period delay they must still settle without buzzing. */
+static void fine_detents_stable(void) {
+    sk_motor m;
+    plant p;
+    calibrated(&m, &p);
+    sk_haptic_config c = {
+        .mode = SK_DETENT, .width_deg = 3, .strength = 1, .endstop = 1, .snap = 1.1f, .damping = 1};
+    sk_motor_configure(&m, &c, encoder(&p));
+    float rest = p.theta;
+    p.omega = 2;
+    run(&m, &p, 1500);
+    float tail = run(&m, &p, 300);
+    float residual = remainderf(p.theta - rest, 3 * SK_PI / 180);
+    printf("fine detents: kicked at 2 rad/s, tail speed %.3f rad/s, %.2f deg from a detent\n", tail,
+           fabsf(residual) * 180 / SK_PI);
+    assert(tail < .3f && fabsf(residual) < .5f * SK_PI / 180);
+}
+/* A press pulse must move the knob perceptibly and leave the position alone. */
+static void press_pulse(void) {
+    sk_motor m;
+    plant p;
+    calibrated(&m, &p);
+    sk_haptic_config c = {
+        .mode = SK_DETENT, .width_deg = 6, .strength = .65f, .endstop = 1, .snap = 1.1f};
+    sk_motor_configure(&m, &c, encoder(&p));
+    run(&m, &p, 300);
+    float start = p.theta, peak = 0;
+    sk_haptic_pulse(&m.haptic, true, false);
+    for (int i = 0; i < 40; i++) {
+        run(&m, &p, 1);
+        peak = fmaxf(peak, fabsf(p.theta - start));
+    }
+    run(&m, &p, 500);
+    printf("press pulse: peak motion %.2f deg, position %d\n", peak * 180 / SK_PI,
+           m.haptic.position);
+    /* Previous 0.7 V pulses moved this model 0.27 deg. */
+    assert(peak > .5f * SK_PI / 180 && m.haptic.position == 0);
+}
 int main(void) {
+    setvbuf(stdout, NULL, _IONBF, 0);
     calibration_matrix();
     calibration_heavy_load();
     calibration_stalled();
     detent_restores();
     endstop_resists();
     detents_count();
+    fine_detents_stable();
+    press_pulse();
     puts("motor simulation passed");
     return 0;
 }

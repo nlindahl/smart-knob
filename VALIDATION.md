@@ -7,6 +7,7 @@
 - The existing controller passes this model, so its sign conventions are consistent. A parameter sweep shows the 1 V calibration vector fails or mis-measures electrical zero under heavier friction/cogging.
 - Calibration now uses a 2 V alignment vector (was 1 V) and averages the electrical offset over a forward and a reverse two-turn sweep instead of reading one resting point. Across 108 simulated variants with up to 6 mN·m cogging and 4 mN·m Coulomb friction, success rose from 43 to 108 and the worst electrical-zero error fell from 0.43 rad to 0.01 rad. Simulated stalls fail with `no_motion` and leave the gates off.
 - MT6701 frames that flag loss of tracking but have a valid CRC are accepted when they continue the last accepted angle (`CONFIG_SK_ENCODER_LOSS_POLICY`, default 1), instead of turning the gates off. Core tests cover every policy, jump rejection, zero wrap and the clean-frame window.
+- Haptics follow the factory tuning more closely: a width-dependent derivative "click" term, press/release/long pulses of 2.5/1.5/2.5 V (were 0.7/0.35/1.2 V), a 10 V/ms slew (was 1 V/ms), and a 2.5 V limit made linear by zero-sequence centering. A latent bug that played any pulse above 1 V as one-sided is fixed. Simulated press pulses now move the free knob 0.92° (was 0.27°); 3° detents at full strength and damping still settle without a limit cycle.
 
 ## Transient encoder-rejection handling — 2026-10-20
 

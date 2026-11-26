@@ -58,7 +58,7 @@ typedef struct {
     sk_haptic_config config;
     float center, previous_angle, unwrapped, velocity, sub_position, voltage;
     int32_t position;
-    uint16_t pulse_ticks;
+    uint16_t pulse_ticks, pulse_half;
     float pulse_strength;
     bool initialized;
 } sk_haptic_state;
@@ -82,6 +82,10 @@ float sk_haptic_step(sk_haptic_state *s, float raw_angle, float dt);
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press);
 void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t position,
                    float sub_position, uint32_t ms, uint32_t flash_until, sk_rgb out[SK_LED_COUNT]);
+/* Hard limit on requested haptic voltage. Voltage mode, no current sensing:
+ * stall current is roughly this over the phase resistance. Linear up to
+ * 0.96 * supply / sqrt(3) (2.77 V at 5 V). */
+#define SK_VOLTAGE_LIMIT 2.5f
 void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3]);
 enum sk_mt6701_status { SK_MT6701_OK, SK_MT6701_CRC, SK_MT6701_LOSS, SK_MT6701_RESERVED };
 /* Decodes the angle for OK and LOSS frames; CRC/RESERVED leave it unchanged. */
