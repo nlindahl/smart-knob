@@ -5,10 +5,7 @@ manifest:
       url: https://github.com/zephyrproject-rtos/zephyr
       revision: v4.5.0
       import:
-        name-allowlist: [hal_espressif]
-    - name: lvgl
-      url: https://github.com/lvgl/lvgl
-      revision: v9.6.0
-      path: modules/lib/gui/lvgl
+        # LVGL is Zephyr's own pinned module (9.6.0 based) at modules/lib/gui/lvgl.
+        name-allowlist: [hal_espressif, lvgl]
   self:
     path: smart-knob

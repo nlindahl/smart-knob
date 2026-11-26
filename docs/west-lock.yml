@@ -9,8 +9,8 @@ manifest:
     revision: 41d10b59730406bbab4ca9f1fbbe9e96aafb4966
     west-commands: scripts/west-commands.yml
   - name: lvgl
-    url: https://github.com/lvgl/lvgl
-    revision: 80ca777e37a2b176770726a02e07a6fb79ef0b39
+    url: https://github.com/zephyrproject-rtos/lvgl
+    revision: c9ffd4692de246eb911c7ba49b78a331b2c63c74
     path: modules/lib/gui/lvgl
   - name: hal_espressif
     url: https://github.com/zephyrproject-rtos/hal_espressif

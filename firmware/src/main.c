@@ -22,16 +22,15 @@ static uint32_t flash_until;
 static const struct device *serial = DEVICE_DT_GET(DT_NODELABEL(usb_serial));
 static const struct device *strip = DEVICE_DT_GET(DT_ALIAS(led_strip));
 static const struct device *display = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-static uint8_t draw_buffer[240 * 24 * 2] __aligned(4);
-static uint32_t lv_ticks(void) {
-    return k_uptime_get_32();
-}
+/* Zephyr's LVGL module creates the display, draw buffers and tick source,
+ * and LV_COLOR_16_SWAP byte-swaps RGB565 for the GC9A01 before each flush.
+ * Its own flush ignores display_write() errors, so this one records them. */
 static void display_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *map) {
-    struct display_buffer_descriptor desc = {.width = area->x2 - area->x1 + 1,
-                                             .height = area->y2 - area->y1 + 1};
+    struct display_buffer_descriptor desc = {.width = lv_area_get_width(area),
+                                             .height = lv_area_get_height(area),
+                                             .frame_incomplete = !lv_display_flush_is_last(disp)};
     desc.pitch = desc.width;
     desc.buf_size = desc.width * desc.height * 2;
-    lv_draw_sw_rgb565_swap(map, desc.width * desc.height);
     if (display_write(display, area->x1, area->y1, &desc, map))
         system_faults |= FAULT_DISPLAY;
     lv_display_flush_ready(disp);
@@ -201,14 +200,9 @@ static uint8_t command(void *ctx, uint8_t op, const uint8_t *bytes, size_t len, 
     return SK_INVALID;
 }
 int main(void) {
-    if (!device_is_ready(display))
+    lv_display_t *disp = lv_display_get_default();
+    if (!device_is_ready(display) || !disp)
         return -ENODEV;
-    lv_init();
-    lv_tick_set_cb(lv_ticks);
-    lv_display_t *disp = lv_display_create(240, 240);
-    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_buffers(disp, draw_buffer, NULL, sizeof(draw_buffer),
-                           LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(disp, display_flush);
     if (storage_init())
         system_faults |= FAULT_STORAGE;

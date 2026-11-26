@@ -11,7 +11,7 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - run: pip install -r requirements-dev.txt
-      - run: git clone --depth 1 --branch v9.6.0 https://github.com/lvgl/lvgl ../lvgl
+      - run: scripts/fetch-lvgl.sh ../lvgl
       - run: LVGL_DIR=../lvgl scripts/check.sh
   firmware:
     uses: ./.github/workflows/firmware.yml

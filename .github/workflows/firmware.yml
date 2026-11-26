@@ -31,6 +31,8 @@ jobs:
       - run: pip install -r smart-knob/requirements-dev.txt
       - run: python3 smart-knob/tests/firmware_package.py
       - run: west init -l smart-knob && west update --narrow -o=--depth=1
+      - name: Check that host/preview LVGL matches the firmware module
+        run: test "$(git -C modules/lib/gui/lvgl rev-parse HEAD)" = "$(smart-knob/scripts/fetch-lvgl.sh --revision)"
       - run: pip install -r zephyr/scripts/requirements-base.txt
       - run: west blobs fetch hal_espressif
       - run: west sdk install --version 1.0.1 --gnu-toolchains xtensa-espressif_esp32s3_zephyr-elf

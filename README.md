@@ -65,7 +65,7 @@ Pinned versions. Zephyr, LVGL and the Zephyr SDK were checked against their upst
 | Dependency/tool | Version |
 |---|---|
 | Zephyr | 4.5.0 |
-| LVGL | 9.6.0 |
+| LVGL | 9.6.0 (Zephyr module `c9ffd46`) |
 | Rust | 1.99.0 |
 | egui / eframe | 0.36.2 |
 | Zephyr SDK | 1.0.1 |
@@ -78,7 +78,7 @@ Pinned versions. Zephyr, LVGL and the Zephyr SDK were checked against their upst
 | clang-format | 23.1.3 |
 | Playwright | 1.64.0 |
 
-`Cargo.lock`, `rust-toolchain.toml`, `requirements-dev.txt`, and `west.yml` pin dependencies. [west-lock.yml](docs/west-lock.yml) records exact source commits. Espressif HAL follows Zephyr's supported revision. This project builds upstream LVGL 9.6 directly and supplies a small Zephyr display adapter; `CONFIG_LVGL=n` disables Zephyr's own LVGL module (also 9.6-based since Zephyr 4.5), and the application still uses LVGL throughout.
+`Cargo.lock`, `rust-toolchain.toml`, `requirements-dev.txt`, and `west.yml` pin dependencies. [west-lock.yml](docs/west-lock.yml) records exact source commits. Espressif HAL follows Zephyr's supported revision. LVGL is Zephyr's own 9.6.0-based module, pinned by Zephyr's manifest and configured through Kconfig in `firmware/prj.conf`. Host tests and the browser preview build the same commit, fetched by `scripts/fetch-lvgl.sh`; the firmware workflow fails if the two diverge.
 
 ## Build firmware
 
@@ -138,7 +138,7 @@ scripts/build-web.sh
 python3 scripts/serve.py
 ```
 
-`LVGL_DIR` can point at a separate LVGL 9.6.0 checkout. Otherwise the script uses the west module. The editor's UI/model are Rust; `web/bridge.js` handles browser file dialogs, Web Serial, and the LVGL WASM module.
+`LVGL_DIR` can point at a separate checkout made with `scripts/fetch-lvgl.sh DIR`. Otherwise the script uses the west module. The editor's UI/model are Rust; `web/bridge.js` handles browser file dialogs, Web Serial, and the LVGL WASM module.
 
 ## Verify
 

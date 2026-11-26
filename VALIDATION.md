@@ -1,8 +1,15 @@
 # Validation — 2026-10-14
 
+## Zephyr LVGL module — 2026-11-26
+
+- Firmware now uses Zephyr's own LVGL module (`CONFIG_LVGL=y`, `zephyrproject-rtos/lvgl` `c9ffd46`, LVGL 9.6.0) instead of compiling upstream LVGL with a private `lv_conf.h`. Zephyr creates the display, the 10 % partial draw buffer and the tick source; fonts 16/24/32 px, a 64 KiB pool, and no ThorVG/vector graphics match the previous configuration.
+- The GC9A01 driver writes pixels unchanged and the panel expects big-endian RGB565 while reporting `PIXEL_FORMAT_RGB_565`, so `CONFIG_LV_COLOR_16_SWAP=y` swaps bytes in LVGL's flush path, as Zephyr's in-tree GC9A01 boards do. This replaces the adapter's manual swap; `lv_draw_rgb565_swap` is linked.
+- Zephyr's flush ignores `display_write()` errors, so a small replacement flush callback keeps display-write fault 64.
+- Host tests and the browser preview now build the same LVGL commit (`scripts/fetch-lvgl.sh`); the firmware workflow checks it against the west workspace. Native render tests pass with it. The cross-build has no warnings: 566,916-byte image. Display output still needs checking on hardware.
+
 ## Zephyr 4.5.0 upgrade — 2026-11-26
 
-- Zephyr moved from 4.4.2 to 4.5.0 (commit `41d10b5`), with its pinned Espressif HAL. LVGL stays at 9.6.0, still the latest release; SDK 1.0.1 is unchanged. All three were checked against their upstream release tags.
+- Zephyr moved from 4.4.2 to 4.5.0 (commit `41d10b5`), with its pinned Espressif HAL. LVGL stayed at 9.6.0, still the latest release (now taken from Zephyr's module, see above); SDK 1.0.1 is unchanged. All three were checked against their upstream release tags.
 - Source changes: `uart_irq_update()` now returns `void`, and `SPI_OP_MODE_MASTER` is deprecated in favor of `SPI_OP_MODE_CONTROLLER`.
 - Zephyr 4.5 Espressif boards declare flash themselves. The board sets `ranges` to 8 MB, so the overlay's 16 MB `reg` left the NVS partition at `0xF00000` outside the mapped range, and the image header silently fell back to 2 MB (`CONFIG_ESPTOOLPY_FLASHSIZE`). The overlay now sets matching `reg`/`ranges` and `prj.conf` selects a 16 MB header; esptool confirms a 16 MB, DIO, 80 MHz ESP32-S3 header.
 - The firmware packager checked `CONFIG_FLASH_SIZE`, which 4.5 no longer defines for Espressif SoCs, and an `0x0` load-offset spelling. It now checks the esptool flash-size option and the devicetree `reg`/`ranges`; packaging tests cover the 2 MB default and an 8 MB `ranges`.
