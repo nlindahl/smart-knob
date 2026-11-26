@@ -8,6 +8,7 @@
 - Detent feedback works and presses step through views. A/B tests with uploaded views: strength 0.65 felt better than 1.0, and snap 1.1 better than 0.75 or 0.6, but clicks felt soft in every case.
 - A detent tick was added; 1.5 V (at strength 1) was preferred over 1.0 V and 2.0 V and is the default. In simulation the tick keeps detent counts exact at slow and fast turns and settles without oscillation.
 - The tick amplitude later moved from a build option to a per-view **Click** setting (default 0.4 = 1.0 V, independent of strength), so it can be tuned live from the editor.
+- Added a thermal limiter (no current sensing): a V² heating estimate caps sustained haptic torque at 1.5 V. In simulation a hard-held end stop starts at 2.37 V and settles at 1.57 V within 20 s, cools to 1 % load after 20 s rest, and 3 s of clicking reaches only 4 % load. Flashed; diagnostics report `thermal_pct`. The rating is a conservative guess for the gimbal motor and TMC6300; physical temperatures were not measured.
 - Not yet checked on hardware: end stops, magnetic/switch modes, press pulse feel, display colors after the LVGL module switch, LED ring, press threshold/tare, loop timing under view uploads, power-loss behavior.
 
 ## Zephyr LVGL module — 2026-11-26

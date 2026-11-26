@@ -10,7 +10,12 @@ extern "C" {
 typedef struct {
     float supply;              /* driver supply in volts */
     float calibration_voltage; /* d-axis alignment voltage */
+    /* Highest sustained voltage magnitude; haptic output is scaled down
+     * when the heating estimate exceeds it. 0 disables the limiter. */
+    float continuous_voltage;
 } sk_motor_limits;
+/* Time constant of the V^2 heating estimate, seconds. */
+#define SK_THERMAL_TAU 4.0f
 enum sk_calibration_result {
     SK_CAL_NONE,
     SK_CAL_OK,
@@ -36,6 +41,8 @@ typedef struct {
     /* Last calibration diagnostics, retained after success or failure. */
     uint8_t result;
     float measured_pairs, measured_travel, drift, consistency, hysteresis;
+    /* Heating estimate: low-pass filtered applied V^2. */
+    float heat;
 } sk_motor;
 typedef struct {
     bool drive; /* false: all gates off (coast) */
@@ -52,6 +59,8 @@ bool sk_motor_calibrating(const sk_motor *m);
 /* One control period. raw is the accepted encoder angle (radians, 0..2pi). */
 enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_output *out);
 const char *sk_calibration_result_name(uint8_t result);
+/* Heating estimate as a fraction of the continuous rating (1 = limiting). */
+float sk_motor_thermal_load(const sk_motor *m);
 #ifdef __cplusplus
 }
 #endif

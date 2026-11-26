@@ -35,3 +35,13 @@ config SK_ENCODER_LOSS_POLICY
       2: accept it while its angle continues the last accepted angle; the
          factory firmware ignores the flag entirely.
       Rejected frames always turn the gates off for that period.
+config SK_MOTOR_CONTINUOUS_MV
+    int "Highest sustained motor voltage in millivolts (0 disables)"
+    default 1500
+    range 0 2500
+    help
+      Without current sensing the firmware estimates winding heating from
+      the applied voltage (V^2, 4 s time constant). When it exceeds this
+      rating, haptic torque tapers down to it, so holding an end stop at
+      full force cannot heat the motor indefinitely. Clicks and press
+      pulses are too short to trigger it; it recovers when the knob rests.

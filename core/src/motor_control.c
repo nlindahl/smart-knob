@@ -175,7 +175,24 @@ static enum sk_motor_event calibration_step(sk_motor *m, float raw, sk_motor_out
     }
     return SK_MOTOR_IDLE;
 }
-enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_output *out) {
+/* No current sensing: estimate winding heating from applied voltage. Holding
+ * an end stop at full torque would otherwise heat the motor indefinitely. */
+float sk_motor_thermal_load(const sk_motor *m) {
+    float c = m->limits.continuous_voltage;
+    return c > 0 ? m->heat / (c * c) : 0;
+}
+/* Largest allowed haptic voltage: unlimited at or below the continuous
+ * rating, tapering to it over the first 10 % of overload so the force
+ * eases off instead of dropping in one step. */
+static float thermal_cap(const sk_motor *m) {
+    float load = sk_motor_thermal_load(m);
+    if (load <= 1)
+        return SK_VOLTAGE_LIMIT;
+    float c = m->limits.continuous_voltage;
+    float t = fminf((load - 1) / .1f, 1);
+    return SK_VOLTAGE_LIMIT + (c - SK_VOLTAGE_LIMIT) * t;
+}
+static enum sk_motor_event control(sk_motor *m, float raw, float dt, sk_motor_output *out) {
     coast(out);
     if (!m->enabled) {
         sk_haptic_step(&m->haptic, -raw, fminf(fmaxf(dt, .0001f), .02f));
@@ -185,7 +202,10 @@ enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_out
         return calibration_step(m, raw, out);
     if (!m->calibration.valid)
         return SK_MOTOR_IDLE;
+    /* Clicks and pulses are milliseconds long; only sustained torque is cut. */
+    float cap = thermal_cap(m);
     float q = sk_haptic_step(&m->haptic, -raw, dt);
+    q = fminf(fmaxf(q, -cap), cap);
     /* UI clockwise sign is opposite the raw encoder sign. */
     float voltage = -q * m->calibration.direction;
     float angle =
@@ -194,6 +214,13 @@ enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_out
         drive(m, voltage, 0, angle, out);
     out->q = q;
     return SK_MOTOR_IDLE;
+}
+enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_output *out) {
+    enum sk_motor_event event = control(m, raw, dt, out);
+    float v2 = out->drive ? out->q * out->q + out->d * out->d : 0;
+    if (isfinite(dt) && dt > 0)
+        m->heat += (v2 - m->heat) * fminf(dt / SK_THERMAL_TAU, 1);
+    return event;
 }
 const char *sk_calibration_result_name(uint8_t result) {
     static const char *const names[] = {"none",        "ok",           "no_motion",

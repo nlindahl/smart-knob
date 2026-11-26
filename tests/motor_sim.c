@@ -330,6 +330,65 @@ static void press_pulse(void) {
     /* Previous 0.7 V pulses moved this model 0.27 deg. */
     assert(peak > .5f * SK_PI / 180 && m.haptic.position == 0);
 }
+/* Holding an end stop hard must back off to the continuous rating, cool
+ * down after release, and leave short clicks untouched. */
+static void thermal_limit(void) {
+    sk_motor m;
+    plant p;
+    calibrated(&m, &p);
+    m.limits.continuous_voltage = 1.5f;
+    m.heat = 0;
+    sk_haptic_config c = {.mode = SK_BOUNDED,
+                          .min = 0,
+                          .max = 0,
+                          .width_deg = 10,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f};
+    sk_motor_configure(&m, &c, encoder(&p));
+    p.external = 15e-3f; /* far more than the stop can hold */
+    float early = 0, late = 0;
+    for (int i = 0; i < 20000; i++) {
+        sk_motor_output out;
+        sk_motor_step(&m, encoder(&p), .001f, &out);
+        plant_step(&p, &out, 5);
+        if (i < 500)
+            early = fmaxf(early, fabsf(out.q));
+        if (i >= 19000)
+            late = fmaxf(late, fabsf(out.q));
+    }
+    float hot = sk_motor_thermal_load(&m);
+    p.external = 0;
+    p.theta = 0;
+    p.omega = 0;
+    sk_motor_configure(&m, &c, encoder(&p));
+    run(&m, &p, 20000);
+    float cooled = sk_motor_thermal_load(&m);
+    printf("thermal: held stop %.2f V at first, %.2f V after 20 s (load %.2f), load %.2f after "
+           "20 s rest\n",
+           early, late, hot, cooled);
+    assert(early > 2.2f && late < 1.65f && hot < 1.12f && cooled < .05f);
+    /* Clicking through detents stays well below the limit, so no scaling. */
+    c = (sk_haptic_config){.mode = SK_DETENT,
+                           .width_deg = 6,
+                           .strength = .65f,
+                           .endstop = 1,
+                           .snap = 1.1f,
+                           .click = SK_DEFAULT_CLICK};
+    sk_motor_configure(&m, &c, encoder(&p));
+    float finger = p.theta, peak = 0;
+    for (int i = 0; i < 3000; i++) {
+        finger += .003f;
+        p.external = .05f * (finger - p.theta) - 2e-4f * p.omega;
+        sk_motor_output out;
+        sk_motor_step(&m, encoder(&p), .001f, &out);
+        plant_step(&p, &out, 5);
+        peak = fmaxf(peak, fabsf(out.q));
+    }
+    printf("thermal: clicking for 3 s peaks at %.2f V, load %.2f\n", peak,
+           sk_motor_thermal_load(&m));
+    assert(sk_motor_thermal_load(&m) < 1 && peak > .9f);
+}
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     calibration_matrix();
@@ -340,6 +399,7 @@ int main(void) {
     detents_count();
     fine_detents_stable();
     press_pulse();
+    thermal_limit();
     puts("motor simulation passed");
     return 0;
 }

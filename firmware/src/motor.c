@@ -121,7 +121,7 @@ static sk_motor ctrl;
 static struct {
     uint8_t result;
     bool enabled;
-    float measured_pairs, measured_travel, consistency, hysteresis, drift;
+    float measured_pairs, measured_travel, consistency, hysteresis, drift, thermal;
 } diag;
 static atomic_t pause_requested, paused, dirty, stop_requested;
 K_SEM_DEFINE(control_tick, 0, 1);
@@ -147,6 +147,7 @@ static void snapshot(float elapsed, float voltage) {
     diag.consistency = ctrl.consistency;
     diag.hysteresis = ctrl.hysteresis;
     diag.drift = ctrl.drift;
+    diag.thermal = sk_motor_thermal_load(&ctrl);
     k_spin_unlock(&status_lock, key);
 }
 static void fault(uint8_t value) {
@@ -255,8 +256,8 @@ int motor_start(void) {
     sk_calibration stored = {0};
     storage_load_calibration(&stored);
     const sk_motor_limits limits = {.supply = CONFIG_SK_MOTOR_SUPPLY_MV / 1000.0f,
-                                    .calibration_voltage =
-                                        CONFIG_SK_MOTOR_CALIBRATION_MV / 1000.0f};
+                                    .calibration_voltage = CONFIG_SK_MOTOR_CALIBRATION_MV / 1000.0f,
+                                    .continuous_voltage = CONFIG_SK_MOTOR_CONTINUOUS_MV / 1000.0f};
     const sk_haptic_config default_config = {
         .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
     float raw = 0;
@@ -334,12 +335,13 @@ size_t motor_diagnostic_text(char *out, size_t size) {
     sk_calibration c = calibration;
     k_spin_unlock(&status_lock, key);
     /* Values in thousandths: pairs_x1000, angles in mrad. */
-    int written =
-        snprintk(out, size,
-                 "Motor: enabled=%u cal=%s pp=%u dir=%d zero_mrad=%d pairs_x1000=%d "
-                 "travel_mrad=%d consistency_x1000=%d hysteresis_mrad=%d drift_mrad=%d",
-                 d.enabled, sk_calibration_result_name(d.result), c.pole_pairs, c.direction,
-                 milli(c.zero_electrical), milli(d.measured_pairs), milli(d.measured_travel),
-                 milli(d.consistency), milli(d.hysteresis), milli(d.drift));
+    int written = snprintk(out, size,
+                           "Motor: enabled=%u cal=%s pp=%u dir=%d zero_mrad=%d pairs_x1000=%d "
+                           "travel_mrad=%d consistency_x1000=%d hysteresis_mrad=%d drift_mrad=%d "
+                           "thermal_pct=%d",
+                           d.enabled, sk_calibration_result_name(d.result), c.pole_pairs,
+                           c.direction, milli(c.zero_electrical), milli(d.measured_pairs),
+                           milli(d.measured_travel), milli(d.consistency), milli(d.hysteresis),
+                           milli(d.drift), (int)lroundf(d.thermal * 100));
     return written > 0 ? MIN((size_t)written, size - 1) : 0;
 }
