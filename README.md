@@ -60,11 +60,11 @@ The LED renderer applies a conservative estimated 180 mA ring budget. High brigh
 
 ## Pinned versions
 
-Latest stable releases verified on **2026-10-14**:
+Pinned versions. Zephyr, LVGL and the Zephyr SDK were checked against their upstream release tags on **2026-11-26** (Zephyr 4.5.0, LVGL 9.6.0 and SDK 1.0.1 are the latest stable releases); the other tools were last checked on 2026-10-14.
 
 | Dependency/tool | Version |
 |---|---|
-| Zephyr | 4.4.2 |
+| Zephyr | 4.5.0 |
 | LVGL | 9.6.0 |
 | Rust | 1.99.0 |
 | egui / eframe | 0.36.2 |
@@ -78,7 +78,7 @@ Latest stable releases verified on **2026-10-14**:
 | clang-format | 23.1.3 |
 | Playwright | 1.64.0 |
 
-`Cargo.lock`, `rust-toolchain.toml`, `requirements-dev.txt`, and `west.yml` pin dependencies. [west-lock.yml](docs/west-lock.yml) records exact source commits. Espressif HAL follows Zephyr's supported revision. Zephyr 4.4's built-in LVGL integration targets an older source layout/Kconfig; this project builds LVGL 9.6 directly and supplies a small Zephyr display adapter. `CONFIG_LVGL=n` disables that older integration; the application still uses LVGL throughout.
+`Cargo.lock`, `rust-toolchain.toml`, `requirements-dev.txt`, and `west.yml` pin dependencies. [west-lock.yml](docs/west-lock.yml) records exact source commits. Espressif HAL follows Zephyr's supported revision. This project builds upstream LVGL 9.6 directly and supplies a small Zephyr display adapter; `CONFIG_LVGL=n` disables Zephyr's own LVGL module (also 9.6-based since Zephyr 4.5), and the application still uses LVGL throughout.
 
 ## Build firmware
 

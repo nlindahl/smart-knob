@@ -5,8 +5,8 @@
 #include <zephyr/drivers/spi.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/printk.h>
-static const struct spi_dt_spec encoder =
-    SPI_DT_SPEC_GET(DT_NODELABEL(encoder), SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_MODE_CPHA);
+static const struct spi_dt_spec encoder = SPI_DT_SPEC_GET(
+    DT_NODELABEL(encoder), SPI_OP_MODE_CONTROLLER | SPI_WORD_SET(8) | SPI_MODE_CPHA);
 static const struct gpio_dt_spec strain_data = GPIO_DT_SPEC_GET(DT_NODELABEL(strain_data), gpios);
 static const struct gpio_dt_spec strain_clock = GPIO_DT_SPEC_GET(DT_NODELABEL(strain_clock), gpios);
 static struct k_spinlock encoder_lock;

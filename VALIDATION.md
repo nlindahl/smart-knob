@@ -1,5 +1,13 @@
 # Validation — 2026-10-14
 
+## Zephyr 4.5.0 upgrade — 2026-11-26
+
+- Zephyr moved from 4.4.2 to 4.5.0 (commit `41d10b5`), with its pinned Espressif HAL. LVGL stays at 9.6.0, still the latest release; SDK 1.0.1 is unchanged. All three were checked against their upstream release tags.
+- Source changes: `uart_irq_update()` now returns `void`, and `SPI_OP_MODE_MASTER` is deprecated in favor of `SPI_OP_MODE_CONTROLLER`.
+- Zephyr 4.5 Espressif boards declare flash themselves. The board sets `ranges` to 8 MB, so the overlay's 16 MB `reg` left the NVS partition at `0xF00000` outside the mapped range, and the image header silently fell back to 2 MB (`CONFIG_ESPTOOLPY_FLASHSIZE`). The overlay now sets matching `reg`/`ranges` and `prj.conf` selects a 16 MB header; esptool confirms a 16 MB, DIO, 80 MHz ESP32-S3 header.
+- The firmware packager checked `CONFIG_FLASH_SIZE`, which 4.5 no longer defines for Espressif SoCs, and an `0x0` load-offset spelling. It now checks the esptool flash-size option and the devicetree `reg`/`ranges`; packaging tests cover the 2 MB default and an 8 MB `ranges`.
+- The cross-build succeeds with no warnings: 566,900-byte image, 245,728 B DRAM, 52,748 B IRAM. Host, motor-simulation and packaging tests pass. No hardware was flashed.
+
 ## Closed-loop motor simulation — 2026-11-26
 
 - Calibration, haptic torque and FOC moved from the firmware thread into the hardware-independent `sk_motor` controller (`core/src/motor_control.c`). The firmware thread now only reads the encoder, enforces timing/encoder faults and writes MCPWM duties.
@@ -51,7 +59,7 @@
 - The actual Rust CLI communicated with the actual C protocol through a pseudoterminal: valid upload/save, selecting view 4, telemetry, rejected corrupt upload, and preservation of the active view after rejection.
 - Chromium/Playwright ran the built Rust editor and LVGL WASM: startup without browser errors, dragging a value widget, full-drag undo/redo, adding a view, persistence after reload, simulated rotation, circular alpha masking, and 72 RGB LED outputs.
 - LVGL text remained present across repeated loading of edited bundles.
-- Zephyr 4.4.2 firmware cross-build with LVGL 9.6.0 and SDK 1.0.1 for `esp32s3_devkitc/esp32s3/procpu`.
+- Zephyr 4.4.2 firmware cross-build with LVGL 9.6.0 and SDK 1.0.1 for `esp32s3_devkitc/esp32s3/procpu` (superseded by the 4.5.0 entry above).
 - esptool 5.5.0 recognizes the resulting image as ESP32-S3, 16 MB flash, DIO at 80 MHz, entry point in IRAM, and simple-boot address 0x0.
 
 Firmware image: approximately 489 KiB (500,564 bytes). Linker RAM use: 230,496 bytes DRAM and 44,312 bytes IRAM. The build uses internal RAM and enables floating-point context sharing for the motor, LED, sensor, and UI tasks.

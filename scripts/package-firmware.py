@@ -17,9 +17,14 @@ def package(build, output, version, commit):
         raise ValueError("Commit must be a full Git SHA")
     zephyr = Path(build) / "zephyr"
     config = dict(re.findall(r"^(CONFIG_\w+)=(.+)$", (zephyr / ".config").read_text(), re.M))
+    # Zephyr 4.5 writes the load offset as "0" and no longer defines
+    # CONFIG_FLASH_SIZE for Espressif SoCs; the image header size comes from
+    # CONFIG_ESPTOOLPY_FLASHSIZE and the mapped size from the devicetree.
     required = {"CONFIG_ESP_SIMPLE_BOOT": "y", "CONFIG_SOC_ESP32S3": "y",
-                "CONFIG_FLASH_LOAD_OFFSET": "0x0", "CONFIG_FLASH_SIZE": "16777216"}
-    if any(config.get(k) != v for k, v in required.items()):
+                "CONFIG_ESPTOOLPY_FLASHSIZE": '"16MB"'}
+    offset = config.get("CONFIG_FLASH_LOAD_OFFSET", "")
+    if (any(config.get(k) != v for k, v in required.items())
+            or not re.fullmatch(r"0x0+|0+", offset)):
         raise ValueError("Expected ESP32-S3 16 MB simple-boot image at offset 0")
     if config.get("CONFIG_BOOTLOADER_MCUBOOT") == "y":
         raise ValueError("MCUboot images need a different install manifest")
@@ -27,6 +32,11 @@ def package(build, output, version, commit):
     if "--esp-app-address=0x0" not in runner["args"]["esp32"]:
         raise ValueError("Runner flash offset disagrees with the install manifest")
     dts = re.sub(r"/\*.*?\*/", "", (zephyr / "zephyr.dts").read_text(), flags=re.S)
+    flash = re.search(r"flash0:\s*flash@0\s*\{(.*?)partitions", dts, re.S)
+    cells = {k: tuple(int(v, 16) for v in re.findall(r"0x\w+", m))
+             for k, m in re.findall(r"\b(reg|ranges)\s*=\s*<([^>]*)>", flash.group(1) if flash else "")}
+    if cells.get("reg") != (0, 0x1000000) or cells.get("ranges") != (0, 0, 0x1000000):
+        raise ValueError("Flash must be mapped as 16 MB in the devicetree (reg and ranges)")
     storage = re.search(r"storage_partition:\s*\w+@\w+\s*\{[^}]*reg\s*=\s*<\s*(0x\w+)\s+(0x\w+)\s*>", dts)
     if not storage or tuple(int(v, 16) for v in storage.groups()) != (0xF00000, 0x40000):
         raise ValueError("Saved-data partition changed; review update compatibility first")

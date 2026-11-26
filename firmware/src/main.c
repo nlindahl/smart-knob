@@ -41,7 +41,8 @@ RING_BUF_DECLARE(serial_rx, 8192);
 static atomic_t rx_overflow;
 static void serial_isr(const struct device *dev, void *arg) {
     (void)arg;
-    while (uart_irq_update(dev) && uart_irq_rx_ready(dev)) {
+    uart_irq_update(dev);
+    while (uart_irq_rx_ready(dev)) {
         uint8_t bytes[64];
         int n = uart_fifo_read(dev, bytes, sizeof(bytes));
         if (n <= 0)

@@ -85,8 +85,10 @@
 &wifi { status = "disabled"; };
 &esp32_bt_hci { status = "disabled"; };
 &psram0 { size = <DT_SIZE_M(8)>; };
+/* Zephyr 4.5 boards declare flash themselves; reg and ranges must match. */
 &flash0 {
     reg = <0x0 DT_SIZE_M(16)>;
+    ranges = <0x0 0x0 DT_SIZE_M(16)>;
     partitions {
         /delete-node/ partition@3b0000;
         storage_partition: partition@f00000 { label = "storage"; reg = <0xf00000 0x40000>; };

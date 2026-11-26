@@ -6,7 +6,7 @@ manifest:
   projects:
   - name: zephyr
     url: https://github.com/zephyrproject-rtos/zephyr
-    revision: dccb09599635bdff17633fa7e9dab014b91dce90
+    revision: 41d10b59730406bbab4ca9f1fbbe9e96aafb4966
     west-commands: scripts/west-commands.yml
   - name: lvgl
     url: https://github.com/lvgl/lvgl
@@ -14,7 +14,7 @@ manifest:
     path: modules/lib/gui/lvgl
   - name: hal_espressif
     url: https://github.com/zephyrproject-rtos/hal_espressif
-    revision: f07465053c0f24aa254d9fdfd559f06879221073
+    revision: cc81db00233af6020f2fea9fbb0d0098fb3d0d86
     path: modules/hal/espressif
     west-commands: west/west-commands.yml
     groups:

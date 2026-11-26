@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
-# LVGL 9.6 changed its Kconfig choices and source layout. Compile the pinned
-# library directly with our adapter; Zephyr 4.4's 9.5 integration cannot load it.
+# Compile the pinned upstream LVGL directly with our small display adapter
+# (CONFIG_LVGL=n). Zephyr 4.5's own LVGL module is also 9.6-based and could
+# replace this, but uses a different Kconfig/lv_conf flow.
 set(SK_LVGL_DIR "${CMAKE_CURRENT_LIST_DIR}/../../modules/lib/gui/lvgl" CACHE PATH "LVGL source")
 set(ZEPHYR_MODULES "${CMAKE_CURRENT_LIST_DIR}/../../modules/hal/espressif")
 list(APPEND DTS_ROOT ${CMAKE_CURRENT_LIST_DIR})
