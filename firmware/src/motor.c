@@ -63,7 +63,8 @@ static int pwm_init(void) {
     mcpwm_ll_group_set_clock_prescale(0, 1);
     mcpwm_ll_timer_set_clock_prescale(pwm, 0, 1);
     mcpwm_ll_timer_set_count_mode(pwm, 0, MCPWM_TIMER_COUNT_MODE_UP_DOWN);
-    mcpwm_ll_timer_set_peak(pwm, 0, PWM_PEAK, false);
+    /* Symmetric: the up-down counter turns at PWM_PEAK, matching the duty math. */
+    mcpwm_ll_timer_set_peak(pwm, 0, PWM_PEAK, true);
     mcpwm_ll_timer_update_period_at_once(pwm, 0);
     for (int phase = 0; phase < 3; phase++) {
         mcpwm_ll_operator_connect_timer(pwm, phase, 0);
