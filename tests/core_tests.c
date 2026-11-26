@@ -171,6 +171,40 @@ int main(void) {
     }
     uint8_t bad_frame[3] = {0, 0, 1};
     assert(!sk_mt6701_decode(bad_frame, &angle));
+    /* Parse classifies frames; LOSS still yields the decoded angle. */
+    angle = 0;
+    assert(sk_mt6701_parse(loss_frame, &angle) == SK_MT6701_LOSS && angle != 0);
+    assert(sk_mt6701_parse(bad_frame, &angle) == SK_MT6701_CRC);
+    assert(sk_mt6701_parse(weak_frame, &angle) == SK_MT6701_OK);
+    {
+        uint8_t reserved[3] = {0, 3 >> 2, 3 << 6};
+        reserved[2] |= sk_mt6701_crc6(reserved);
+        assert(sk_mt6701_parse(reserved, &angle) == SK_MT6701_RESERVED);
+    }
+    /* Tracking-loss frames: never accepted without a clean reference, only
+     * while continuous, and within the clean-frame window for policy 1. */
+    for (int policy = SK_LOSS_REJECT; policy <= SK_LOSS_ACCEPT; policy++) {
+        sk_encoder_track track = {0};
+        assert(!sk_encoder_accept(&track, SK_MT6701_LOSS, 1, 0, policy));
+        assert(sk_encoder_accept(&track, SK_MT6701_OK, 1, 1, policy));
+        bool lenient = policy != SK_LOSS_REJECT;
+        assert(sk_encoder_accept(&track, SK_MT6701_LOSS, 1.05f, 2, policy) == lenient);
+        /* A jump is rejected under every policy and does not move the reference. */
+        assert(!sk_encoder_accept(&track, SK_MT6701_LOSS, 2, 3, policy));
+        assert(!sk_encoder_accept(&track, SK_MT6701_CRC, 1.05f, 4, policy));
+        assert(!sk_encoder_accept(&track, SK_MT6701_RESERVED, 1.05f, 5, policy));
+        /* Wrap across zero counts as continuous. */
+        sk_encoder_track wrap = {0};
+        assert(sk_encoder_accept(&wrap, SK_MT6701_OK, SK_TAU - .01f, 0, policy));
+        assert(sk_encoder_accept(&wrap, SK_MT6701_LOSS, .01f, 1, policy) == lenient);
+        /* Long loss runs: policy 1 stops after the window, policy 2 continues. */
+        sk_encoder_track run = {0};
+        assert(sk_encoder_accept(&run, SK_MT6701_OK, 0, 100, policy));
+        for (uint32_t ms = 101; ms <= 100 + SK_ENCODER_LOSS_WINDOW_MS; ms++)
+            assert(sk_encoder_accept(&run, SK_MT6701_LOSS, 0, ms, policy) == lenient);
+        assert(sk_encoder_accept(&run, SK_MT6701_LOSS, 0, 101 + SK_ENCODER_LOSS_WINDOW_MS,
+                                 policy) == (policy == SK_LOSS_ACCEPT));
+    }
     assert(sk_crc32((const uint8_t *)"123456789", 9) == 0xcbf43926);
     sk_project_default(&project);
     assert(sk_project_validate(&project));

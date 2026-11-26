@@ -62,3 +62,14 @@ The release's compiled artifacts and host/browser tests are recorded in `VALIDAT
 The [MagnTek MT6701 datasheet, section 7.8.2](https://www.magntek.com.cn/upload/pdf/202407/MT6701_Rev.1.8.pdf) confirms that Mg[3] is the tracking-loss indication; the bit extraction is correct. The original Seedlabs driver accepts CRC-valid frames without checking this indication and filters the resulting angle. Factory firmware working on the same assembly therefore does not establish that the indication never occurs.
 
 To avoid permanently disabling a knob on a short burst, the motor loop distinguishes immediate output gating from a latched fault. SPI failures, bad CRC, loss-of-track and reserved-status frames are still rejected, and the motor gates turn off on each rejected read. A valid read ends the rejection interval; 20 ms of continuous rejection latches fault 1 and requires explicit recovery. Existing latched faults are never automatically cleared. Diagnostic `bad_run` and `max_bad_run` count the current and longest consecutive rejected-read bursts since boot (samples, not milliseconds). This recovery policy needs physical validation; report burst length and fault status after updating.
+
+### Tracking-loss policy
+
+Reported Dev Kits show weak-field status and loss-of-tracking bursts while the factory firmware, which ignores the loss flag, still works. Rejecting every such frame turned the gates off repeatedly, which feels like missing or stuttering feedback and eventually latched fault 1. `CONFIG_SK_ENCODER_LOSS_POLICY` now selects:
+
+- `0`: reject every loss-flagged frame (previous behavior).
+- `1` (default): accept a CRC-valid loss-flagged frame only if its angle is within 0.1 rad of the last accepted angle and a clean frame arrived in the last 200 ms.
+- `2`: accept it whenever it continues the last accepted angle, matching factory behavior more closely.
+
+A loss-flagged frame is never accepted without a prior clean reading, and an angle jump is always rejected. CRC failures and reserved field status are always rejected. Diagnostics report accepted loss frames as `loss_ok`. If `status_err`/`max_bad_run` still grow with policy 1, try policy 2 and inspect magnet spacing.
+

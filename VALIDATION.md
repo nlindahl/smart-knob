@@ -6,6 +6,7 @@
 - `tests/motor_sim.c` runs that controller against a PMSM model (back-EMF, cogging, viscous and Coulomb friction, 14-bit quantized encoder) whose pole pairs, winding direction, electrical offset, encoder direction and mounting offset are hidden from the controller. It checks that calibration recovers all 24 plant variants, detents restore a displaced knob and come to rest, end stops resist an applied torque that otherwise spins the rotor, and positions count while turning.
 - The existing controller passes this model, so its sign conventions are consistent. A parameter sweep shows the 1 V calibration vector fails or mis-measures electrical zero under heavier friction/cogging.
 - Calibration now uses a 2 V alignment vector (was 1 V) and averages the electrical offset over a forward and a reverse two-turn sweep instead of reading one resting point. Across 108 simulated variants with up to 6 mN·m cogging and 4 mN·m Coulomb friction, success rose from 43 to 108 and the worst electrical-zero error fell from 0.43 rad to 0.01 rad. Simulated stalls fail with `no_motion` and leave the gates off.
+- MT6701 frames that flag loss of tracking but have a valid CRC are accepted when they continue the last accepted angle (`CONFIG_SK_ENCODER_LOSS_POLICY`, default 1), instead of turning the gates off. Core tests cover every policy, jump rejection, zero wrap and the clean-frame window.
 
 ## Transient encoder-rejection handling — 2026-10-20
 

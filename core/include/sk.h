@@ -83,6 +83,10 @@ void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press);
 void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t position,
                    float sub_position, uint32_t ms, uint32_t flash_until, sk_rgb out[SK_LED_COUNT]);
 void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3]);
+enum sk_mt6701_status { SK_MT6701_OK, SK_MT6701_CRC, SK_MT6701_LOSS, SK_MT6701_RESERVED };
+/* Decodes the angle for OK and LOSS frames; CRC/RESERVED leave it unchanged. */
+enum sk_mt6701_status sk_mt6701_parse(const uint8_t bytes[3], float *angle);
+/* Strict decode: only frames without tracking loss or reserved status. */
 bool sk_mt6701_decode(const uint8_t bytes[3], float *angle);
 uint8_t sk_mt6701_crc6(const uint8_t bytes[3]);
 typedef struct {
@@ -92,6 +96,22 @@ typedef struct {
 /* Every invalid sample must gate the motor off; only sustained rejection latches. */
 #define SK_ENCODER_LATCH_MS 20u
 bool sk_encoder_should_latch(sk_encoder_health *health, bool valid, uint32_t now_ms);
+typedef struct {
+    float last;
+    uint32_t clean_ms;
+    bool have;
+} sk_encoder_track;
+/* Largest angle change per read accepted from a tracking-loss frame (rad). */
+#define SK_ENCODER_MAX_STEP .1f
+/* SK_LOSS_CONTINUOUS also requires a clean frame within this window. */
+#define SK_ENCODER_LOSS_WINDOW_MS 200u
+enum sk_loss_policy {
+    SK_LOSS_REJECT,     /* every tracking-loss frame is rejected */
+    SK_LOSS_CONTINUOUS, /* accepted if continuous and a clean frame was recent */
+    SK_LOSS_ACCEPT      /* accepted if continuous (factory firmware ignores the flag) */
+};
+bool sk_encoder_accept(sk_encoder_track *t, enum sk_mt6701_status status, float angle,
+                       uint32_t now_ms, enum sk_loss_policy policy);
 void sk_pwm_compare(float duty, unsigned peak, unsigned dead, unsigned *a, unsigned *b);
 #ifdef __cplusplus
 }

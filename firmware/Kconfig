@@ -24,3 +24,14 @@ config SK_MOTOR_CALIBRATION_MV
       lets cogging and friction stop the rotor; the simulation in
       tests/motor_sim.c calibrates reliably from 2 V. No current sensing:
       the stall current is roughly this voltage over the phase resistance.
+config SK_ENCODER_LOSS_POLICY
+    int "MT6701 tracking-loss frame policy"
+    default 1
+    range 0 2
+    help
+      0: reject every CRC-valid frame that flags loss of tracking.
+      1: accept it while its angle continues the last accepted angle and a
+         clean frame arrived within the last 200 ms.
+      2: accept it while its angle continues the last accepted angle; the
+         factory firmware ignores the flag entirely.
+      Rejected frames always turn the gates off for that period.

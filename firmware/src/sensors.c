@@ -16,18 +16,22 @@ static struct {
     uint8_t raw[3], expected_crc;
     uint8_t last_bad[3], last_reason;
     uint32_t last_bad_ms;
-    uint32_t bad_run, max_bad_run;
+    uint32_t bad_run, max_bad_run, loss_accepted;
 } encoder_diag;
 int encoder_init(void) {
     return spi_is_ready_dt(&encoder) ? 0 : -ENODEV;
 }
+static sk_encoder_track encoder_track;
 int encoder_read(float *angle) {
     uint8_t bytes[3] = {0};
     struct spi_buf buffer = {.buf = bytes, .len = 3};
     struct spi_buf_set rx = {.buffers = &buffer, .count = 1};
     int rc = spi_read_dt(&encoder, &rx);
     uint8_t expected_crc = sk_mt6701_crc6(bytes);
-    bool valid = !rc && sk_mt6701_decode(bytes, angle);
+    float decoded = 0;
+    enum sk_mt6701_status status = rc ? SK_MT6701_CRC : sk_mt6701_parse(bytes, &decoded);
+    bool valid = !rc && sk_encoder_accept(&encoder_track, status, decoded, k_uptime_get_32(),
+                                          CONFIG_SK_ENCODER_LOSS_POLICY);
     k_spinlock_key_t key = k_spin_lock(&encoder_lock);
     encoder_diag.reads++;
     encoder_diag.spi_rc = rc;
@@ -35,22 +39,24 @@ int encoder_read(float *angle) {
     encoder_diag.expected_crc = expected_crc;
     if (rc)
         encoder_diag.spi_errors++;
-    else if (expected_crc != (bytes[2] & 63))
+    else if (status == SK_MT6701_CRC)
         encoder_diag.crc_errors++;
     else if (!valid)
         encoder_diag.status_errors++;
     else {
         encoder_diag.valid++;
         encoder_diag.bad_run = 0;
+        if (status == SK_MT6701_LOSS)
+            encoder_diag.loss_accepted++;
     }
     if (!valid) {
         encoder_diag.bad_run++;
         encoder_diag.max_bad_run = MAX(encoder_diag.max_bad_run, encoder_diag.bad_run);
         memcpy(encoder_diag.last_bad, bytes, sizeof(bytes));
-        encoder_diag.last_reason = rc                                ? 1
-                                   : expected_crc != (bytes[2] & 63) ? 2
-                                   : (bytes[1] & 2)                  ? 3
-                                                                     : 4;
+        encoder_diag.last_reason = rc                         ? 1
+                                   : status == SK_MT6701_CRC  ? 2
+                                   : status == SK_MT6701_LOSS ? 3
+                                                              : 4;
         encoder_diag.last_bad_ms = k_uptime_get_32();
     }
     k_spin_unlock(&encoder_lock, key);
@@ -58,6 +64,7 @@ int encoder_read(float *angle) {
         return rc;
     if (!valid)
         return -EIO;
+    *angle = decoded;
     return 0;
 }
 size_t encoder_diagnostic_text(char *out, size_t size) {
@@ -70,12 +77,13 @@ size_t encoder_diagnostic_text(char *out, size_t size) {
         snprintk(out, size,
                  "Encoder: spi_rc=%d raw=%02X%02X%02X crc=%02X/%02X "
                  "loss=%u field=%u reads=%u valid=%u spi_err=%u crc_err=%u status_err=%u "
-                 "last_bad=%02X%02X%02X reason=%s age_ms=%u bad_run=%u max_bad_run=%u",
+                 "last_bad=%02X%02X%02X reason=%s age_ms=%u bad_run=%u max_bad_run=%u loss_ok=%u",
                  d.spi_rc, d.raw[0], d.raw[1], d.raw[2], d.raw[2] & 63, d.expected_crc,
                  (d.raw[1] >> 1) & 1, (d.raw[2] >> 6) & 3, d.reads, d.valid, d.spi_errors,
                  d.crc_errors, d.status_errors, d.last_bad[0], d.last_bad[1], d.last_bad[2],
                  (const char *[]){"none", "spi", "crc", "loss", "reserved"}[d.last_reason],
-                 d.last_reason ? k_uptime_get_32() - d.last_bad_ms : 0, d.bad_run, d.max_bad_run);
+                 d.last_reason ? k_uptime_get_32() - d.last_bad_ms : 0, d.bad_run, d.max_bad_run,
+                 d.loss_accepted);
     return written > 0 ? MIN((size_t)written, size - 1) : 0;
 }
 K_MSGQ_DEFINE(press_events, sizeof(uint8_t), 16, 1);
