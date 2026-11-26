@@ -1,5 +1,13 @@
 # Validation — 2026-10-14
 
+## First hardware session — 2026-11-26
+
+- A Seedlabs Dev Kit (ESP32-S3 rev 0.2, 16 MB flash, 8 MB PSRAM) was backed up in full (factory ESP-IDF 4.4.7/Arduino image) and flashed with CI build `e9531c4`. The saved-data region was blank, so no erase was needed.
+- Passive rotation tracked smoothly in both directions over about five turns. Over about 3 million encoder reads none were rejected; about 2–3 % carried the MT6701 loss-of-tracking flag with weak-field status and were accepted as continuous. The previous strict policy would have cut motor output on each of them.
+- Calibration succeeded on the first run in 9.7 s: 7 pole pairs (measured 7.029), direction −1, sweep consistency 0.992, forward/reverse hysteresis 0.12 rad, drift 6 mrad. It persisted across reflashing and reboot, confirming NVS at `0xF00000` with the Zephyr 4.5 mapping.
+- Detent feedback works and presses step through views. A/B tests with uploaded views: strength 0.65 felt better than 1.0, and snap 1.1 better than 0.75 or 0.6, but clicks felt soft in every case.
+- Not yet checked on hardware: end stops, magnetic/switch modes, press pulse feel, display colors after the LVGL module switch, LED ring, press threshold/tare, loop timing under view uploads, power-loss behavior.
+
 ## Zephyr LVGL module — 2026-11-26
 
 - Firmware now uses Zephyr's own LVGL module (`CONFIG_LVGL=y`, `zephyrproject-rtos/lvgl` `c9ffd46`, LVGL 9.6.0) instead of compiling upstream LVGL with a private `lv_conf.h`. Zephyr creates the display, the 10 % partial draw buffer and the tick source; fonts 16/24/32 px, a 64 KiB pool, and no ThorVG/vector graphics match the previous configuration.
