@@ -3,6 +3,10 @@ let preview, ptr = 0, last = new Uint8Array(), imported = '', message = 'USB dis
 let reader, writer, input = [], sequence = 1, pending = new Map(), busy = false, state = [];
 let receiveTask, disconnecting = false;
 let diagnostic = '', diagnosticAt = 0, diagnosticsAvailable = true;
+// Live sync: the editor's latest bundle and any view it asked the device to show.
+let live = null, liveChangedAt = 0, liveSent = null, liveRetryAt = 0, liveView = 0, deviceName = '';
+const LIVE_DEBOUNCE_MS = 250, LIVE_RETRY_MS = 1000;
+const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => v === b[i]);
 export const ready = createPreview().then(m => { preview = m; preview._sk_preview_init(); ptr = preview._malloc(24576); });
 function load(bytes, view) {
   if (bytes.length !== last.length || bytes.some((b, i) => b !== last[i])) {
@@ -84,6 +88,17 @@ async function withDevice(action) {
   busy = true;
   try { await action(); } catch (e) { message = e.message; } finally { busy = false; }
 }
+async function transfer(bytes) {
+  const begin = new Uint8Array(8), d = new DataView(begin.buffer);
+  d.setUint32(0,bytes.length,true); d.setUint32(4,crc32(bytes),true);
+  await call(2,begin);
+  for (let offset = 0; offset < bytes.length; offset += 508) {
+    const slice = bytes.slice(offset,offset+508), payload = new Uint8Array(4+slice.length);
+    new DataView(payload.buffer).setUint32(0,offset,true); payload.set(slice,4);
+    await call(3,payload);
+  }
+  await call(4);
+}
 async function upload(bytes, save) {
   await withDevice(async () => {
     const begin = new Uint8Array(8), d = new DataView(begin.buffer);
@@ -106,16 +121,34 @@ async function connect() {
     port = await navigator.serial.requestPort();
     try { await port.open({baudRate:115200,bufferSize:16384}); } catch (e) { port = undefined; throw e; }
     input = []; state = []; disconnecting = false; writer = port.writable.getWriter();
+    liveSent = null; liveRetryAt = 0;
     diagnostic = ''; diagnosticAt = 0; diagnosticsAvailable = true;
     receiveTask = receive();
     const name = new TextDecoder().decode(await call(1));
-    message = name;
+    message = deviceName = name;
   });
+}
+// One device loop at 10 Hz: push pending live edits first, then poll state.
+async function liveStep() {
+  const now = Date.now();
+  if (live && !same(live, liveSent) && now - liveChangedAt >= LIVE_DEBOUNCE_MS && now >= liveRetryAt) {
+    const bytes = live;
+    // Success is shown by the editor's sync pill; keep the device name in the status.
+    try { await transfer(bytes); liveSent = bytes; if (message.startsWith('Live sync:')) message = deviceName; }
+    catch (e) { liveRetryAt = now + LIVE_RETRY_MS; message = `Live sync: ${e.message}`; }
+  }
+  // Select only once the device has the project containing that view.
+  if (liveView && (!live || same(live, liveSent))) {
+    const view = liveView; liveView = 0;
+    const id = new Uint8Array([view & 255, view >> 8]);
+    try { await call(5, id); } catch (e) { message = `Live sync: ${e.message}`; }
+  }
 }
 setInterval(async () => {
   if (!writer || busy) return;
   busy = true;
   try {
+    await liveStep();
     const bytes = await call(6);
     if (bytes.length === 28) {
       const d = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
@@ -130,7 +163,7 @@ setInterval(async () => {
       }
     }
   } catch (e) { message = e.message; } finally { busy = false; }
-},500);
+},100);
 globalThis.smartknob = {
   render(bytes,view,position,sub,ms,flash) { load(bytes,view); const p = preview._sk_preview_render(position,sub,ms,flash); return preview.HEAPU8.slice(p,p+240*240*4); },
   simulate(bytes,view,angle,pressed,longPress) { load(bytes,view); const p = preview._sk_preview_step(angle,pressed ? 1 : 0,longPress ? 1 : 0); return preview.HEAPF32.slice(p/4,p/4+3); },
@@ -152,6 +185,12 @@ globalThis.smartknob = {
   upload(bytes,save) { upload(bytes.slice(),save); },
   command(op,bytes) { const data=bytes.slice(); withDevice(async () => { await call(op,data); message=op===7 ? 'Calibration started; leave the knob untouched' : 'Command accepted'; }); },
   status() { return message; },
+  connected() { return !!writer; },
+  // Called every frame while live sync is on; uploads after edits settle.
+  live_sync(bytes) { if (!same(bytes, live)) { live = bytes.slice(); liveChangedAt = Date.now(); } },
+  // Ask the device to show a view the user picked in the editor.
+  live_select(view) { liveView = view; },
+  live_pending() { return !!writer && !!live && !same(live, liveSent); },
   telemetry() { return Float32Array.from(state); },
   diagnostics() { return diagnostic; },
 };

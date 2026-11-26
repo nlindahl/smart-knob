@@ -45,7 +45,7 @@ Open **http://localhost:8080**. Create or duplicate views, drag widgets on the c
 
 The preview runs **the same C LVGL renderer and haptic/LED algorithms as firmware**, compiled with Emscripten. Its simulation shows positions and requested voltage; physical feedback is tested on a connected knob. Firmware renders RGB565; the browser renders XRGB8888, so color quantization differs slightly.
 
-Use **Connect USB** in desktop Chrome/Edge on localhost or HTTPS. **Test views** applies an upload in RAM. **Upload & save** persists it through reboot. **Show selected view** changes the device view. You can calibrate, tare, stop, and enable the motor, and follow live device state. Other browsers can edit and export files; use `knobctl` for USB when Web Serial is unavailable.
+Use **Connect USB** in a browser with Web Serial (desktop Chrome/Edge, or Firefox where enabled) on localhost or HTTPS. **Live sync** is on by default: about 250 ms after an edit settles, the project is sent to the knob's RAM, and picking a view in the editor shows it on the knob. In the other direction, turning the knob drives the preview's position and motor readout at 10 Hz, and pressing it to change view switches the editor too. On connect, the editor's project replaces what is running (RAM only; a reboot restores the saved project). **Save to device** persists it through reboot. With live sync off, **Test views** and **Show selected view** do the same manually. You can also calibrate, tare, stop, and enable the motor. Other browsers can edit and export files; use `knobctl` for USB when Web Serial is unavailable.
 
 ## Included behavior
 

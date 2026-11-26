@@ -22,8 +22,17 @@ pub struct Editor {
     drag_origin: Option<(i16, i16)>,
     detent_text: String,
     saved: String,
+    /// Mirror edits to the connected device and follow its state.
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    follow_device: bool,
+    live: bool,
+    /// Live sync is on and a device is connected (updated every frame).
+    live_active: bool,
+    /// Last view reported by the device, to follow only its own changes.
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    device_view: u16,
+    /// Last view the device was asked to show.
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    synced_view: u16,
 }
 fn color(c: u32) -> Color32 {
     Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8)
@@ -58,7 +67,10 @@ impl Default for Editor {
             message: String::new(),
             drag_origin: None,
             detent_text: String::new(),
-            follow_device: false,
+            live: true,
+            live_active: false,
+            device_view: 0,
+            synced_view: 0,
         }
     }
 }
@@ -155,6 +167,10 @@ impl Editor {
                 }
             }
         }
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.live_active = self.live && super::browser::connected();
+        }
         let before = self.project.clone();
         let mut history_action = false;
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z))
@@ -234,6 +250,11 @@ impl Editor {
                         self.undo.push(std::mem::replace(&mut self.project, p));
                         self.reset_selection();
                         history_action = true;
+                    }
+                    if self.live_active {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            theme::pill(ui, "Live on device", theme::ACCENT);
+                        });
                     }
                 });
                 // Accent line under the header.
@@ -663,6 +684,20 @@ impl Editor {
                 });
             });
         self.preview(root, ms);
+        #[cfg(target_arch = "wasm32")]
+        if self.live_active {
+            // The bridge debounces, so edits upload once they settle.
+            if let Ok(bundle) = self.project.bundle() {
+                super::browser::live_sync(&bundle);
+            }
+            let id = self.project.views[self.view].id;
+            if id != self.synced_view {
+                super::browser::live_select(id);
+                self.synced_view = id;
+            }
+        } else {
+            self.synced_view = 0;
+        }
         if !history_action && self.drag_origin.is_none() {
             self.checkpoint(before);
         }
@@ -679,40 +714,55 @@ impl Editor {
     }
     #[cfg(target_arch = "wasm32")]
     fn device_card(&mut self, ui: &mut egui::Ui) {
-        let status = super::browser::status();
-        let connected = !status.to_lowercase().contains("disconnected") && !status.is_empty();
-        if connected {
-            theme::pill(ui, "Connected", theme::ACCENT);
-        } else {
-            theme::pill(ui, "Not connected", theme::MUTED);
-        }
-        ui.label(RichText::new(status).small().color(theme::MUTED));
+        let connected = super::browser::connected();
         ui.horizontal_wrapped(|ui| {
-            if theme::primary(ui, "Connect USB").clicked() {
+            if connected {
+                theme::pill(ui, "Connected", theme::ACCENT);
+            } else {
+                theme::pill(ui, "Not connected", theme::MUTED);
+            }
+            if self.live_active && super::browser::live_pending() {
+                theme::pill(ui, "Syncing…", theme::WARN);
+            }
+        });
+        ui.label(
+            RichText::new(super::browser::status())
+                .small()
+                .color(theme::MUTED),
+        );
+        ui.horizontal_wrapped(|ui| {
+            if !connected && theme::primary(ui, "Connect USB").clicked() {
                 super::browser::connect();
             }
             if ui.button("Install firmware").clicked() {
                 super::browser::install_firmware();
             }
         });
+        ui.checkbox(&mut self.live, "Live sync with device");
+        ui.label(
+            RichText::new(
+                "Edits appear on the knob as you make them (RAM only). Turning or pressing the knob updates the editor.",
+            )
+            .small()
+            .color(theme::MUTED),
+        );
         ui.horizontal_wrapped(|ui| {
-            if ui.button("Test views").clicked() {
+            if !self.live && ui.button("Test views").clicked() {
                 match self.project.bundle() {
                     Ok(b) => super::browser::upload(&b, false),
                     Err(e) => self.message = e,
                 }
             }
-            if theme::primary(ui, "Upload & save").clicked() {
+            if theme::primary(ui, "Save to device").clicked() {
                 match self.project.bundle() {
                     Ok(b) => super::browser::upload(&b, true),
                     Err(e) => self.message = e,
                 }
             }
-            if ui.button("Show selected view").clicked() {
+            if !self.live && ui.button("Show selected view").clicked() {
                 super::browser::command(5, &self.project.views[self.view].id.to_le_bytes());
             }
         });
-        ui.checkbox(&mut self.follow_device, "Follow device state");
         ui.add_space(2.);
         theme::section(ui, "Motor", None);
         ui.horizontal_wrapped(|ui| {
@@ -735,7 +785,7 @@ impl Editor {
                 .color(theme::MUTED),
         );
         let state = super::browser::telemetry().to_vec();
-        if state.len() >= 8 {
+        if connected && state.len() >= 8 {
             let faults = state[3] as u8;
             ui.horizontal_wrapped(|ui| {
                 let (text, color) = match state[4] as u8 {
@@ -785,22 +835,28 @@ impl Editor {
                     },
                 );
             }
-            if self.follow_device
-                && let Some(i) = self
-                    .project
-                    .views
-                    .iter()
-                    .position(|v| v.id == state[0] as u16)
-            {
-                if self.view != i {
-                    self.selected = None;
-                    self.drag_origin = None;
+            if self.live_active {
+                // Follow the device only when it changes view by itself
+                // (knob press), so editor clicks aren't overridden while
+                // the select request is in flight.
+                let device_view = state[0] as u16;
+                if device_view != self.device_view {
+                    self.device_view = device_view;
+                    if let Some(i) = self.project.views.iter().position(|v| v.id == device_view)
+                        && i != self.view
+                    {
+                        self.view = i;
+                        self.selected = None;
+                        self.drag_origin = None;
+                        self.synced_view = device_view;
+                    }
                 }
-                self.view = i;
                 self.position = state[1] as i32;
                 self.sub = state[2];
                 self.voltage = state[5];
             }
+        } else {
+            self.device_view = 0;
         }
     }
     fn preview(&mut self, root: &mut egui::Ui, ms: u32) {
@@ -815,9 +871,11 @@ impl Editor {
                     theme::pill(ui, &mode_summary(&v.haptics), theme::ACCENT_2);
                 });
                 ui.label(
-                    RichText::new(
-                        "Drag widgets to arrange the view. Rotate below to test values and navigation.",
-                    )
+                    RichText::new(if self.live_active {
+                        "Live: edits show on the knob, and the preview follows the knob."
+                    } else {
+                        "Drag widgets to arrange the view. Rotate below to test values and navigation."
+                    })
                     .color(theme::MUTED),
                 );
                 let side =
@@ -832,7 +890,7 @@ impl Editor {
                 #[cfg(target_arch = "wasm32")]
                 if let Ok(bundle) = self.project.bundle() {
                     let v = &self.project.views[self.view];
-                    if !self.follow_device {
+                    if !self.live_active {
                         let sim = super::browser::simulate(
                             &bundle,
                             v.id,
@@ -1017,21 +1075,33 @@ impl Editor {
                 ui.vertical_centered(|ui| {
                     ui.set_max_width(controls_width);
                     theme::card(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().slider_width = (controls_width - 150.).max(160.);
-                            ui.add(
-                                egui::Slider::new(&mut self.angle_deg, -720.0..=720.)
-                                    .text("Rotation °"),
-                            );
-                        });
+                        if self.live_active {
+                            ui.horizontal_wrapped(|ui| {
+                                theme::pill(ui, "Live from the knob", theme::ACCENT);
+                                ui.label(
+                                    RichText::new("Turn or press the knob to drive the preview.")
+                                        .color(theme::MUTED),
+                                );
+                            });
+                        } else {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().slider_width = (controls_width - 150.).max(160.);
+                                ui.add(
+                                    egui::Slider::new(&mut self.angle_deg, -720.0..=720.)
+                                        .text("Rotation °"),
+                                );
+                            });
+                        }
                         ui.horizontal_wrapped(|ui| {
-                            if ui.button("− Detent").clicked() {
-                                self.angle_deg -=
-                                    self.project.views[self.view].haptics.width_deg;
-                            }
-                            if ui.button("+ Detent").clicked() {
-                                self.angle_deg +=
-                                    self.project.views[self.view].haptics.width_deg;
+                            if !self.live_active {
+                                if ui.button("− Detent").clicked() {
+                                    self.angle_deg -=
+                                        self.project.views[self.view].haptics.width_deg;
+                                }
+                                if ui.button("+ Detent").clicked() {
+                                    self.angle_deg +=
+                                        self.project.views[self.view].haptics.width_deg;
+                                }
                             }
                             if theme::primary(ui, "Press").clicked() {
                                 self.navigate(false, ms);
@@ -1039,7 +1109,7 @@ impl Editor {
                             if ui.button("Long press").clicked() {
                                 self.navigate(true, ms);
                             }
-                            if ui.button("Reset").clicked() {
+                            if !self.live_active && ui.button("Reset").clicked() {
                                 self.angle_deg = 0.;
                                 self.last_bundle.clear();
                                 #[cfg(target_arch = "wasm32")]

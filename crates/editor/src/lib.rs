@@ -33,6 +33,10 @@ mod browser {
         pub fn upload(bundle: &[u8], save: bool);
         pub fn command(op: u8, payload: &[u8]);
         pub fn status() -> String;
+        pub fn connected() -> bool;
+        pub fn live_sync(bundle: &[u8]);
+        pub fn live_select(view: u16);
+        pub fn live_pending() -> bool;
         pub fn telemetry() -> js_sys::Float32Array;
         pub fn diagnostics() -> String;
     }

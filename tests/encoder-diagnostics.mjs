@@ -17,11 +17,13 @@ try {
       const { frame } = await import('./bridge.js');
       let input;
       window.diagnosticRequests = 0;
+      window.ops = [];
       const port = {
         async open() {
           this.readable = new ReadableStream({ start(controller) { input = controller; } });
           this.writable = new WritableStream({ write(bytes) {
             const op = bytes[3], seq = new DataView(bytes.buffer, bytes.byteOffset).getUint16(4, true);
+            if (op !== 6 && op !== 12) window.ops.push(op);
             let reply = new Uint8Array([0]);
             if (op === 1) reply = new Uint8Array([0, ...new TextEncoder().encode('Test SmartKnob')]);
             if (op === 6) {
@@ -51,8 +53,23 @@ try {
       assert.equal(await page.evaluate(() => window.diagnosticRequests), 1);
       assert.equal(await page.evaluate(() => smartknob.status()), 'Test SmartKnob');
     }
+    if (available) {
+      // Live sync (on by default): after connecting, the editor's project is
+      // uploaded once (BEGIN, CHUNKs, COMMIT), then its view is selected,
+      // and nothing is re-sent while the project is unchanged.
+      await page.waitForFunction(() => window.ops.includes(5));
+      const ops = await page.evaluate(() => window.ops.filter(op => op !== 1));
+      assert.equal(ops[0], 2, 'Live upload starts with BEGIN');
+      assert.deepEqual(ops.slice(-2), [4, 5], 'COMMIT, then SELECT');
+      assert(ops.slice(1, -2).length > 0 && ops.slice(1, -2).every(op => op === 3));
+      assert.equal(await page.evaluate(() => smartknob.live_pending()), false);
+      assert.equal(await page.evaluate(() => smartknob.status()), 'Test SmartKnob');
+      await page.evaluate(() => { window.ops = []; });
+      await page.waitForTimeout(700);
+      assert.deepEqual(await page.evaluate(() => window.ops), [], 'Unchanged project re-sent');
+    }
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('Encoder diagnostics passed: warning polling without a fault, raw data, older-firmware compatibility');
+  console.log('Encoder diagnostics passed: warning polling without a fault, raw data, older-firmware compatibility; live sync uploads once on connect, selects after commit, and stays idle when unchanged');
 } finally { await browser.close(); }
