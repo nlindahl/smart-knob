@@ -35,7 +35,12 @@ jobs:
         run: test "$(git -C modules/lib/gui/lvgl rev-parse HEAD)" = "$(smart-knob/scripts/fetch-lvgl.sh --revision)"
       - run: pip install -r zephyr/scripts/requirements-base.txt
       - run: west blobs fetch hal_espressif
-      - run: west sdk install --version 1.0.1 --gnu-toolchains xtensa-espressif_esp32s3_zephyr-elf
+      - name: Install Zephyr SDK
+        # Authenticated so the release lookup isn't hit by the shared
+        # runners' anonymous GitHub API rate limit.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: west sdk install --version 1.0.1 --gnu-toolchains xtensa-espressif_esp32s3_zephyr-elf --personal-access-token "$GITHUB_TOKEN"
       - run: west build -b esp32s3_devkitc/esp32s3/procpu smart-knob/firmware -d smart-knob/build-firmware
       - name: Package validated firmware
         working-directory: smart-knob
