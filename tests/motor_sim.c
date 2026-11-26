@@ -11,6 +11,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct {
     /* Hidden plant parameters. */
@@ -171,6 +172,13 @@ static void calibration_stalled(void) {
     sk_motor m;
     assert(!calibrate(&m, &p));
     assert(m.result == SK_CAL_NO_MOTION && !m.enabled);
+    /* A calibration loaded at boot reports as stored, not as never run. */
+    sk_calibration stored = {.pole_pairs = 7, .direction = -1, .valid = true};
+    sk_motor_init(&m, &limits, &stored, &free_config, 0);
+    assert(m.result == SK_CAL_STORED && m.enabled);
+    assert(!strcmp(sk_calibration_result_name(m.result), "stored"));
+    sk_motor_init(&m, &limits, NULL, &free_config, 0);
+    assert(m.result == SK_CAL_NONE && !m.enabled);
     sk_motor_output out;
     sk_motor_step(&m, encoder(&p), .001f, &out);
     assert(!out.drive);

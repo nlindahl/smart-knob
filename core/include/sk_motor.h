@@ -19,7 +19,8 @@ enum sk_calibration_result {
     SK_CAL_ENDPOINTS,   /* start/end alignment disagree electrically */
     SK_CAL_DRIFT,       /* rotor moved while holding the final vector */
     SK_CAL_ABORTED,
-    SK_CAL_INCONSISTENT /* electrical offset varied around the sweep */
+    SK_CAL_INCONSISTENT, /* electrical offset varied around the sweep */
+    SK_CAL_STORED        /* valid calibration loaded from storage at boot */
 };
 enum sk_motor_event { SK_MOTOR_IDLE, SK_MOTOR_CALIBRATED, SK_MOTOR_CALIBRATION_FAILED };
 typedef struct {

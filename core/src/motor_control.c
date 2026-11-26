@@ -30,6 +30,7 @@ void sk_motor_init(sk_motor *m, const sk_motor_limits *limits, const sk_calibrat
     if (cal)
         m->calibration = *cal;
     m->enabled = m->calibration.valid;
+    m->result = m->calibration.valid ? SK_CAL_STORED : SK_CAL_NONE;
     sk_haptic_init(&m->haptic, config, -raw);
 }
 void sk_motor_configure(sk_motor *m, const sk_haptic_config *config, float raw) {
@@ -195,7 +196,8 @@ enum sk_motor_event sk_motor_step(sk_motor *m, float raw, float dt, sk_motor_out
     return SK_MOTOR_IDLE;
 }
 const char *sk_calibration_result_name(uint8_t result) {
-    static const char *const names[] = {"none",      "ok",    "no_motion", "not_integer",
-                                        "endpoints", "drift", "aborted",   "inconsistent"};
+    static const char *const names[] = {"none",        "ok",           "no_motion",
+                                        "not_integer", "endpoints",    "drift",
+                                        "aborted",     "inconsistent", "stored"};
     return result < sizeof(names) / sizeof(names[0]) ? names[result] : "unknown";
 }
