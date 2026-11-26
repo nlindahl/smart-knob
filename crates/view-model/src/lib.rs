@@ -48,6 +48,15 @@ pub struct Haptics {
     pub snap: f32,
     pub damping: f32,
     pub detents: Vec<i32>,
+    /// Tick played on entering a detent, as a fraction of the 2.5 V limit.
+    /// Projects saved before this setting existed load with the default.
+    #[serde(default = "default_click")]
+    pub click: f32,
+}
+/// 0.4 × 2.5 V = 1.0 V, the amplitude preferred on a Dev Kit.
+pub const DEFAULT_CLICK: f32 = 0.4;
+fn default_click() -> f32 {
+    DEFAULT_CLICK
 }
 impl Default for Haptics {
     fn default() -> Self {
@@ -62,6 +71,7 @@ impl Default for Haptics {
             snap: 1.1,
             damping: 0.5,
             detents: vec![],
+            click: DEFAULT_CLICK,
         }
     }
 }
@@ -90,6 +100,7 @@ impl Haptics {
             ("endstop", self.endstop, 0., 1.),
             ("snap", self.snap, 0.5, 1.5),
             ("damping", self.damping, 0., 1.),
+            ("click", self.click, 0., 1.),
         ] {
             if !v.is_finite() || v < lo || v > hi {
                 return Err(format!("{name} must be between {lo} and {hi}"));
@@ -423,7 +434,7 @@ impl Project {
                 .u32(v.background)
                 .map_err(err)?;
             let h = &v.haptics;
-            e.array(10)
+            e.array(11)
                 .map_err(err)?
                 .u8(h.mode as u8)
                 .map_err(err)?
@@ -440,6 +451,7 @@ impl Project {
             for n in &h.detents {
                 e.i32(*n).map_err(err)?;
             }
+            e.f32(h.click).map_err(err)?;
             let l = &v.leds;
             e.array(8)
                 .map_err(err)?
@@ -545,6 +557,19 @@ mod tests {
             ..Haptics::default()
         };
         assert!(h.validate().is_err());
+    }
+    #[test]
+    fn click_defaults_for_older_projects_and_is_range_checked() {
+        let mut json = serde_json::to_value(Project::default()).unwrap();
+        for v in json["views"].as_array_mut().unwrap() {
+            v["haptics"].as_object_mut().unwrap().remove("click");
+        }
+        let old: Project = serde_json::from_value(json).unwrap();
+        assert!(old.views.iter().all(|v| v.haptics.click == DEFAULT_CLICK));
+        old.validate().unwrap();
+        let mut p = Project::default();
+        p.views[1].haptics.click = 1.5;
+        assert!(p.validate().is_err());
     }
     #[test]
     fn crc_vector() {

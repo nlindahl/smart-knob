@@ -25,7 +25,8 @@ const sk_view *sk_view_after_upload(const sk_project *p, uint16_t current) {
 bool sk_haptic_equal(const sk_haptic_config *a, const sk_haptic_config *b) {
     if (a->mode != b->mode || a->min != b->min || a->max != b->max || a->initial != b->initial ||
         a->width_deg != b->width_deg || a->strength != b->strength || a->endstop != b->endstop ||
-        a->snap != b->snap || a->damping != b->damping || a->detent_count != b->detent_count)
+        a->snap != b->snap || a->damping != b->damping || a->click != b->click ||
+        a->detent_count != b->detent_count)
         return false;
     for (int i = 0; i < a->detent_count; i++)
         if (a->detents[i] != b->detents[i])
@@ -158,7 +159,10 @@ static void string(reader *r, char *out, size_t capacity) {
     r->p += n;
 }
 static void haptic(reader *r, sk_haptic_config *c) {
-    array(r, 10);
+    /* 10 fields before the click setting existed, 11 since. */
+    uint64_t fields = head(r, 4);
+    if (fields != 10 && fields != 11)
+        r->ok = false;
     c->mode = uint(r, SK_SWITCH);
     c->min = sint(r);
     c->max = sint(r);
@@ -176,6 +180,7 @@ static void haptic(reader *r, sk_haptic_config *c) {
     c->detent_count = n;
     for (int i = 0; i < c->detent_count; i++)
         c->detents[i] = sint(r);
+    c->click = fields == 11 ? real(r) : SK_DEFAULT_CLICK;
 }
 static uint32_t le32(const uint8_t *p) {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -254,7 +259,8 @@ void sk_project_default(sk_project *p) {
                                        .strength = .65f,
                                        .endstop = .8f,
                                        .snap = 1.1f,
-                                       .damping = .5f};
+                                       .damping = .5f,
+                                       .click = SK_DEFAULT_CLICK};
         if (i == 0)
             v->haptic.mode = SK_FREE;
         if (i == 2)

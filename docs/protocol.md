@@ -19,12 +19,12 @@ The CBOR schema uses fixed arrays to keep decoding bounded and allocation-free:
 ```text
 project = [1, start_view, [view, ...]]
 view = [id, name, background, haptics, leds, on_press, on_long_press, [widget, ...]]
-haptics = [mode, min, max, initial, width_deg, strength, endstop, snap, damping, [detents, ...]]
+haptics = [mode, min, max, initial, width_deg, strength, endstop, snap, damping, [detents, ...], click]
 leds = [mode, brightness, color, accent, offset, reverse, press_flash, mode_flash]
 widget = [id, kind, x, y, width, height, color, font_size, text]
 ```
 
-All five haptic real fields are CBOR float32. Integer widths may use CBOR's shortest encoding. Indefinite lengths, extra fields, trailing data, nonfinite floats, duplicate IDs, dangling navigation, invalid geometry, and over-capacity counts are rejected. Project text is printable ASCII. Bundles are limited to 24,576 bytes; decoded projects use static storage.
+All six haptic real fields are CBOR float32. `click` (0–1, the detent tick as a fraction of the 2.5 V limit) was added after the first release: decoders also accept the older 10-field haptics array and use 0.4 for it, so saved projects keep loading. Firmware from before the field rejects 11-field bundles; update the firmware before uploading from a newer editor. Integer widths may use CBOR's shortest encoding. Indefinite lengths, extra fields, trailing data, nonfinite floats, duplicate IDs, dangling navigation, invalid geometry, and over-capacity counts are rejected. Project text is printable ASCII. Bundles are limited to 24,576 bytes; decoded projects use static storage.
 
 Enum values:
 

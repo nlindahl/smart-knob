@@ -35,13 +35,3 @@ config SK_ENCODER_LOSS_POLICY
       2: accept it while its angle continues the last accepted angle; the
          factory firmware ignores the flag entirely.
       Rejected frames always turn the gates off for that period.
-config SK_DETENT_TICK_MV
-    int "Detent tick amplitude in millivolts at strength 1"
-    default 1500
-    range 0 2500
-    help
-      Short push-pull torque tick played each time the knob enters a
-      detent, scaled by the view's detent strength. 0 disables it. The
-      spring alone only fades out at the snap point, which feels soft at
-      fine spacing. 1500 was preferred over 1000 and 2000 on a Dev Kit
-      with 6-degree detents at strength 0.65.

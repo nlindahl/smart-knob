@@ -18,9 +18,9 @@ bool sk_haptic_valid(const sk_haptic_config *c) {
     if (c->mode > SK_SWITCH || !isfinite(c->width_deg) || c->width_deg < 1 || c->width_deg > 180 ||
         !isfinite(c->strength) || c->strength < 0 || c->strength > 1 || !isfinite(c->endstop) ||
         c->endstop < 0 || c->endstop > 1 || !isfinite(c->snap) || c->snap < .5f || c->snap > 1.5f ||
-        !isfinite(c->damping) || c->damping < 0 || c->damping > 1 ||
-        c->detent_count > SK_MAX_DETENTS || c->min < -1000000 || c->max > 1000000 ||
-        c->initial < -1000000 || c->initial > 1000000)
+        !isfinite(c->damping) || c->damping < 0 || c->damping > 1 || !isfinite(c->click) ||
+        c->click < 0 || c->click > 1 || c->detent_count > SK_MAX_DETENTS || c->min < -1000000 ||
+        c->max > 1000000 || c->initial < -1000000 || c->initial > 1000000)
         return false;
     if ((c->mode == SK_BOUNDED || c->mode == SK_SWITCH) &&
         (c->min > c->max || c->initial < c->min || c->initial > c->max))
@@ -55,17 +55,9 @@ void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press) {
     s->pulse_half = s->pulse_ticks / 2;
     s->pulse_strength = long_press ? SK_VOLTAGE_LIMIT : (pressed ? SK_VOLTAGE_LIMIT : 1.5f);
 }
+#define TICK_HALF 2 /* control periods per tick half */
 /* Detent "click" gain in V·s/rad, as in the factory firmware: fine detents
  * need more derivative action because their spring torque is small. */
-/* Detent tick amplitude in volts at strength 1. Firmware sets it from
- * CONFIG_SK_DETENT_TICK_MV; host builds (tests, browser preview) use the
- * same 1.5 V default. */
-#ifdef CONFIG_SK_DETENT_TICK_MV
-#define TICK_VOLTS (CONFIG_SK_DETENT_TICK_MV / 1000.0f)
-#else
-#define TICK_VOLTS 1.5f
-#endif
-#define TICK_HALF 2 /* control periods per tick half */
 static float click_gain(const sk_haptic_config *c) {
     const float lo = 3, hi = 8, at_lo = .08f, at_hi = .02f;
     float t = clamp((c->width_deg - lo) / (hi - lo), 0, 1);
@@ -132,12 +124,12 @@ float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
      * motion, then against it. The spring alone only fades out at the snap
      * point, which feels soft at fine spacing. Magnetic mode ticks only on
      * its detents; free mode never ticks. */
-    if (moved && c->mode != SK_FREE && magnetic && TICK_VOLTS > 0) {
+    if (moved && c->mode != SK_FREE && magnetic && c->click > 0) {
         s->tick_ticks = 2 * TICK_HALF;
         s->tick_dir = moved_dir;
     }
     if (s->tick_ticks) {
-        float amplitude = TICK_VOLTS * c->strength * s->tick_dir;
+        float amplitude = c->click * SK_VOLTAGE_LIMIT * s->tick_dir;
         q += s->tick_ticks > TICK_HALF ? amplitude : -amplitude;
         s->tick_ticks--;
     }

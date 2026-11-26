@@ -7,6 +7,7 @@
 - Calibration succeeded on the first run in 9.7 s: 7 pole pairs (measured 7.029), direction −1, sweep consistency 0.992, forward/reverse hysteresis 0.12 rad, drift 6 mrad. It persisted across reflashing and reboot, confirming NVS at `0xF00000` with the Zephyr 4.5 mapping.
 - Detent feedback works and presses step through views. A/B tests with uploaded views: strength 0.65 felt better than 1.0, and snap 1.1 better than 0.75 or 0.6, but clicks felt soft in every case.
 - A detent tick was added; 1.5 V (at strength 1) was preferred over 1.0 V and 2.0 V and is the default. In simulation the tick keeps detent counts exact at slow and fast turns and settles without oscillation.
+- The tick amplitude later moved from a build option to a per-view **Click** setting (default 0.4 = 1.0 V, independent of strength), so it can be tuned live from the editor.
 - Not yet checked on hardware: end stops, magnetic/switch modes, press pulse feel, display colors after the LVGL module switch, LED ring, press threshold/tare, loop timing under view uploads, power-loss behavior.
 
 ## Zephyr LVGL module — 2026-11-26

@@ -87,7 +87,8 @@ static void haptics(void) {
                               .strength = 1,
                               .endstop = 1,
                               .snap = 1.1f,
-                              .damping = .5f};
+                              .damping = .5f,
+                              .click = .6f};
         sk_haptic_state h;
         sk_haptic_init(&h, &t, 0);
         float cross = 1.12f * 6 * SK_PI / 180;
@@ -148,7 +149,69 @@ static void led_tests(void) {
     sk_led_render(&c, &h, 0, 0, 10, 100, leds);
     assert(leds[3].g > 0 && leds[3].r == 0);
 }
+/* Minimal hand-built bundles: one view, haptics with or without the
+ * click field, so both encodings are checked byte for byte. */
+static size_t put_f32(uint8_t *p, float v) {
+    uint32_t bits;
+    memcpy(&bits, &v, 4);
+    p[0] = 0xfa;
+    for (int i = 0; i < 4; i++)
+        p[1 + i] = bits >> (24 - 8 * i);
+    return 5;
+}
+static size_t bundle(uint8_t *out, bool with_click, float click) {
+    uint8_t cbor[128];
+    size_t n = 0;
+    const uint8_t start[] = {0x83, 1, 1, 0x81, 0x88, 1, 0x61, 'A', 0};
+    memcpy(cbor, start, sizeof(start));
+    n += sizeof(start);
+    cbor[n++] = with_click ? 0x8b : 0x8a;
+    cbor[n++] = 1; /* detent */
+    cbor[n++] = 0;
+    cbor[n++] = 0x18;
+    cbor[n++] = 100;
+    cbor[n++] = 0;
+    const float reals[] = {6, .65f, .8f, 1.1f, .5f};
+    for (int i = 0; i < 5; i++)
+        n += put_f32(cbor + n, reals[i]);
+    cbor[n++] = 0x80; /* no magnetic detents */
+    if (with_click)
+        n += put_f32(cbor + n, click);
+    const uint8_t rest[] = {0x88, 0, 0x18, 64, 0, 0, 0, 0xf4, 0xf4, 0xf4, 0, 0, 0x80};
+    memcpy(cbor + n, rest, sizeof(rest));
+    n += sizeof(rest);
+    memcpy(out, "SKV1", 4);
+    uint32_t crc = sk_crc32(cbor, n);
+    for (int i = 0; i < 4; i++) {
+        out[4 + i] = (uint8_t)(n >> (8 * i));
+        out[8 + i] = (uint8_t)(crc >> (8 * i));
+    }
+    memcpy(out + 12, cbor, n);
+    return n + 12;
+}
+static void click_field(void) {
+    uint8_t b[160];
+    sk_project p;
+    size_t len = bundle(b, false, 0);
+    assert(sk_project_decode(b, len, &p));
+    assert(p.views[0].haptic.click == SK_DEFAULT_CLICK);
+    len = bundle(b, true, .25f);
+    assert(sk_project_decode(b, len, &p));
+    assert(p.views[0].haptic.click == .25f);
+    len = bundle(b, true, 1.5f);
+    assert(!sk_project_decode(b, len, &p));
+    sk_project_default(&p);
+    assert(p.views[1].haptic.click == SK_DEFAULT_CLICK);
+    /* No tick without click, even at full strength. */
+    sk_haptic_config c = {
+        .mode = SK_DETENT, .width_deg = 6, .strength = 1, .endstop = 1, .snap = 1.1f, .damping = 0};
+    sk_haptic_state h;
+    sk_haptic_init(&h, &c, 0);
+    sk_haptic_step(&h, 1.12f * 6 * SK_PI / 180, .001f);
+    assert(h.position == 1 && h.tick_ticks == 0);
+}
 int main(void) {
+    click_field();
     sk_encoder_health health = {0};
     /* Repeated three-sample bursts must not permanently latch a healthy stream. */
     for (uint32_t ms = 0; ms < 1000; ms++)

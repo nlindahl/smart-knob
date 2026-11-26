@@ -21,6 +21,7 @@ typedef struct {
     uint8_t mode;
     int32_t min, max, initial;
     float width_deg, strength, endstop, snap, damping;
+    float click; /* detent tick, 0..1 of SK_VOLTAGE_LIMIT */
     uint8_t detent_count;
     int32_t detents[SK_MAX_DETENTS];
 } sk_haptic_config;
@@ -94,6 +95,8 @@ void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t po
  * stall current is roughly this over the phase resistance. Linear up to
  * 0.96 * supply / sqrt(3) (2.77 V at 5 V). */
 #define SK_VOLTAGE_LIMIT 2.5f
+/* Click for bundles that predate the field: 1.0 V, as tuned on a Dev Kit. */
+#define SK_DEFAULT_CLICK .4f
 void sk_foc(float q, float d, float electrical_angle, float supply, float duty[3]);
 enum sk_mt6701_status { SK_MT6701_OK, SK_MT6701_CRC, SK_MT6701_LOSS, SK_MT6701_RESERVED };
 /* Decodes the angle for OK and LOSS frames; CRC/RESERVED leave it unchanged. */

@@ -185,8 +185,12 @@ static void detent_restores(void) {
     sk_motor m;
     plant p;
     calibrated(&m, &p);
-    sk_haptic_config c = {
-        .mode = SK_DETENT, .width_deg = 12, .strength = 1, .endstop = 1, .snap = 1.1f};
+    sk_haptic_config c = {.mode = SK_DETENT,
+                          .width_deg = 12,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f,
+                          .click = SK_DEFAULT_CLICK};
     sk_motor_configure(&m, &c, encoder(&p));
     float rest = p.theta;
     for (int sign = -1; sign <= 1; sign += 2) {
@@ -243,8 +247,12 @@ static void detents_count(void) {
     sk_motor m;
     plant p;
     calibrated(&m, &p);
-    sk_haptic_config c = {
-        .mode = SK_DETENT, .width_deg = 10, .strength = 1, .endstop = 1, .snap = 1.1f};
+    sk_haptic_config c = {.mode = SK_DETENT,
+                          .width_deg = 10,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f,
+                          .click = SK_DEFAULT_CLICK};
     sk_motor_configure(&m, &c, encoder(&p));
     float start = p.theta;
     /* A finger modeled as a stiff spring dragged at 3 rad/s for 1 s. */
@@ -272,8 +280,13 @@ static void fine_detents_stable(void) {
     sk_motor m;
     plant p;
     calibrated(&m, &p);
-    sk_haptic_config c = {
-        .mode = SK_DETENT, .width_deg = 3, .strength = 1, .endstop = 1, .snap = 1.1f, .damping = 1};
+    sk_haptic_config c = {.mode = SK_DETENT,
+                          .width_deg = 3,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f,
+                          .damping = 1,
+                          .click = SK_DEFAULT_CLICK};
     sk_motor_configure(&m, &c, encoder(&p));
     float rest = p.theta;
     p.omega = 2;
@@ -289,8 +302,12 @@ static void press_pulse(void) {
     sk_motor m;
     plant p;
     calibrated(&m, &p);
-    sk_haptic_config c = {
-        .mode = SK_DETENT, .width_deg = 6, .strength = .65f, .endstop = 1, .snap = 1.1f};
+    sk_haptic_config c = {.mode = SK_DETENT,
+                          .width_deg = 6,
+                          .strength = .65f,
+                          .endstop = 1,
+                          .snap = 1.1f,
+                          .click = SK_DEFAULT_CLICK};
     sk_motor_configure(&m, &c, encoder(&p));
     run(&m, &p, 300);
     float start = p.theta, peak = 0;

@@ -526,6 +526,14 @@ impl Editor {
                                     .text("Damping")
                                     .fixed_decimals(2),
                             );
+                            ui.add(
+                                egui::Slider::new(&mut h.click, 0.0..=1.)
+                                    .text("Click")
+                                    .fixed_decimals(2),
+                            )
+                            .on_hover_text(
+                                "Tick played on each detent (1.0 = 2.5 V). Independent of strength.",
+                            );
                             ui.horizontal(|ui| {
                                 ui.label(RichText::new("Initial").color(theme::MUTED));
                                 ui.add(
