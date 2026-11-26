@@ -1,5 +1,11 @@
 # Validation — 2026-10-14
 
+## Closed-loop motor simulation — 2026-11-26
+
+- Calibration, haptic torque and FOC moved from the firmware thread into the hardware-independent `sk_motor` controller (`core/src/motor_control.c`). The firmware thread now only reads the encoder, enforces timing/encoder faults and writes MCPWM duties.
+- `tests/motor_sim.c` runs that controller against a PMSM model (back-EMF, cogging, viscous and Coulomb friction, 14-bit quantized encoder) whose pole pairs, winding direction, electrical offset, encoder direction and mounting offset are hidden from the controller. It checks that calibration recovers all 24 plant variants, detents restore a displaced knob and come to rest, end stops resist an applied torque that otherwise spins the rotor, and positions count while turning.
+- The existing controller passes this model, so its sign conventions are consistent. A parameter sweep shows the 1 V calibration vector fails or mis-measures electrical zero under heavier friction/cogging; see the following entries.
+
 ## Transient encoder-rejection handling — 2026-10-20
 
 - Verified the status layout against MagnTek MT6701 Rev.1.8 section 7.8.2: the loss bit is correctly decoded. The Seedlabs driver accepts CRC-valid frames regardless of that bit, explaining why factory operation alone does not settle its meaning for this unit.

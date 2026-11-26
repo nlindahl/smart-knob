@@ -1,4 +1,5 @@
 #include "hardware.h"
+#include "sk_motor.h"
 #include <esp_rom_gpio.h>
 #include <hal/mcpwm_ll.h>
 #include <math.h>
@@ -111,27 +112,26 @@ static struct k_thread thread;
 K_THREAD_STACK_DEFINE(stack, 4096);
 static struct k_spinlock status_lock;
 static motor_status status;
+/* Copy of ctrl.calibration readable from other threads under status_lock. */
 static sk_calibration calibration;
-static sk_haptic_state haptic;
-static atomic_t pause_requested, paused, enabled, dirty, stop_requested;
+static sk_motor ctrl;
+static atomic_t pause_requested, paused, dirty, stop_requested;
 K_SEM_DEFINE(control_tick, 0, 1);
 static void timer_tick(struct k_timer *timer) {
     (void)timer;
     k_sem_give(&control_tick);
 }
 K_TIMER_DEFINE(control_timer, timer_tick, NULL);
-static uint8_t calib_phase;
-static float electrical, previous_raw, travel, start_travel, calib_start, end_mechanical;
-static uint32_t calibration_tick;
 static void snapshot(float elapsed, float voltage) {
     k_spinlock_key_t key = k_spin_lock(&status_lock);
-    status.position = haptic.position;
-    status.sub = haptic.sub_position;
+    status.position = ctrl.haptic.position;
+    status.sub = ctrl.haptic.sub_position;
     status.voltage = voltage;
     status.loops++;
     if (elapsed > status.max_loop_us)
         status.max_loop_us = elapsed;
-    status.calibration = calib_phase ? 1 : calibration.valid ? 2 : 0;
+    status.calibration = sk_motor_calibrating(&ctrl) ? 1 : ctrl.calibration.valid ? 2 : 0;
+    calibration = ctrl.calibration;
     k_spin_unlock(&status_lock, key);
 }
 static void fault(uint8_t value) {
@@ -139,92 +139,26 @@ static void fault(uint8_t value) {
     status.faults |= value;
     k_spin_unlock(&status_lock, key);
     gates_off();
-    atomic_clear(&enabled);
-    calib_phase = 0;
+    sk_motor_stop(&ctrl);
 }
-static void drive(float q, float d, float angle) {
-    float duty[3];
-    sk_foc(q, d, angle, 5, duty);
-    duties(duty);
-    gates_on();
+static void clear_faults(void) {
+    k_spinlock_key_t key = k_spin_lock(&status_lock);
+    status.faults = 0;
+    k_spin_unlock(&status_lock, key);
 }
-static void calibration_step(float raw) {
-    /* Align d-axis, sweep three electrical turns, measure pole pairs, then
-     * return to electrical zero. This state machine never blocks the loop. */
-    calibration_tick++;
-    travel += remainderf(raw - previous_raw, SK_TAU);
-    previous_raw = raw;
-    if (calib_phase == 1) {
-        drive(0, 1.0f, 0);
-        if (calibration_tick >= 800) {
-            start_travel = travel;
-            calib_start = raw;
-            electrical = 0;
-            calib_phase = 2;
-            calibration_tick = 0;
-        }
-    } else if (calib_phase == 2) {
-        electrical += .006f;
-        drive(0, 1.0f, electrical);
-        if (electrical >= 3 * SK_TAU) {
-            calib_phase = 3;
-            calibration_tick = 0;
-        }
-    } else if (calib_phase == 3) {
-        drive(0, 1.0f, 3 * SK_TAU);
-        if (calibration_tick >= 800) {
-            float moved = travel - start_travel;
-            float pairs = 3 * SK_TAU / fabsf(moved);
-            if (!isfinite(pairs) || pairs < 2.8f || pairs > 12.2f) {
-                fault(FAULT_MOTOR);
-                return;
-            }
-            int rounded = (int)lroundf(pairs);
-            if (!isfinite(pairs) || rounded < 3 || rounded > 12 || fabsf(pairs - rounded) > .2f) {
-                fault(FAULT_MOTOR);
-                return;
-            }
-            k_spinlock_key_t cal_key = k_spin_lock(&status_lock);
-            calibration = (sk_calibration){
-                .pole_pairs = rounded, .direction = moved > 0 ? 1 : -1, .valid = false};
-            k_spin_unlock(&status_lock, cal_key);
-            end_mechanical = raw;
-            /* Both alignment endpoints must agree in electrical coordinates. */
-            if (fabsf(remainderf((raw - calib_start) * rounded, SK_TAU)) > .35f) {
-                fault(FAULT_MOTOR);
-                return;
-            }
-            cal_key = k_spin_lock(&status_lock);
-            calibration.zero_electrical = remainderf(raw * rounded * calibration.direction, SK_TAU);
-            k_spin_unlock(&status_lock, cal_key);
-            calib_phase = 4;
-            calibration_tick = 0;
-        }
-    } else {
-        drive(0, 1.0f, 0);
-        if (calibration_tick >= 300) {
-            if (fabsf(remainderf(raw - end_mechanical, SK_TAU)) > .1f) {
-                fault(FAULT_MOTOR);
-                return;
-            }
-            k_spinlock_key_t key = k_spin_lock(&status_lock);
-            calibration.valid = true;
-            k_spin_unlock(&status_lock, key);
-            atomic_set(&dirty, 1);
-            calib_phase = 0;
-            sk_haptic_init(&haptic, &haptic.config, -raw);
-            gates_off();
-        }
+static void apply(const sk_motor_output *out) {
+    if (!out->drive) {
+        gates_off();
+        return;
     }
+    duties(out->duty);
+    gates_on();
 }
 static void run(void *a, void *b, void *c) {
     (void)a;
     (void)b;
     (void)c;
     float raw = 0;
-    sk_haptic_config default_config = {
-        .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
-    sk_haptic_init(&haptic, &default_config, 0);
     /* The Xtensa timer has a 32-bit CCOUNT, not a 64-bit cycle counter.
      * Unsigned deltas handle its wrap every ~17.9 s at 240 MHz. */
     uint32_t last = k_cycle_get_32();
@@ -236,8 +170,7 @@ static void run(void *a, void *b, void *c) {
         last = begin;
         if (atomic_get(&stop_requested)) {
             gates_off();
-            atomic_clear(&enabled);
-            calib_phase = 0;
+            sk_motor_stop(&ctrl);
             k_msgq_purge(&commands);
             atomic_clear(&stop_requested);
         }
@@ -265,56 +198,35 @@ static void run(void *a, void *b, void *c) {
         motor_command cmd;
         while (!k_msgq_get(&commands, &cmd, K_NO_WAIT)) {
             if (cmd.type == CMD_CONFIG) {
-                if (!calib_phase)
-                    sk_haptic_init(&haptic, &cmd.config, -raw);
+                sk_motor_configure(&ctrl, &cmd.config, raw);
             } else if (cmd.type == CMD_PULSE) {
-                if (!calib_phase)
-                    sk_haptic_pulse(&haptic, cmd.press, cmd.long_press);
+                if (!sk_motor_calibrating(&ctrl))
+                    sk_haptic_pulse(&ctrl.haptic, cmd.press, cmd.long_press);
             } else if (cmd.type == CMD_ENABLE) {
-                if (calibration.valid) {
-                    k_spinlock_key_t key = k_spin_lock(&status_lock);
-                    status.faults = 0;
-                    k_spin_unlock(&status_lock, key);
-                    atomic_set(&enabled, 1);
-                    sk_haptic_init(&haptic, &haptic.config, -raw);
+                if (ctrl.calibration.valid) {
+                    clear_faults();
+                    sk_motor_enable(&ctrl, raw);
                 }
             } else {
-                k_spinlock_key_t key = k_spin_lock(&status_lock);
-                status.faults = 0;
-                calibration.valid = false;
-                k_spin_unlock(&status_lock, key);
-                calib_phase = 1;
-                calibration_tick = 0;
-                previous_raw = raw;
-                travel = 0;
-                atomic_set(&enabled, 1);
+                clear_faults();
+                sk_motor_calibrate(&ctrl, raw);
             }
         }
-        float q = 0;
-        if (atomic_get(&enabled)) {
-            if (dt > .01f || dt <= 0)
-                fault(FAULT_TIMING);
-            else if (calib_phase)
-                calibration_step(raw);
-            else if (calibration.valid) {
-                q = sk_haptic_step(&haptic, -raw, dt);
-                /* UI clockwise sign is opposite the raw encoder sign. */
-                float voltage = -q * calibration.direction;
-                float angle = raw * calibration.pole_pairs * calibration.direction -
-                              calibration.zero_electrical;
-                if (fabsf(voltage) < .001f)
-                    gates_off();
-                else
-                    drive(voltage, 0, angle);
-            } else
-                gates_off();
+        sk_motor_output out = {0};
+        if (ctrl.enabled && (dt > .01f || dt <= 0)) {
+            fault(FAULT_TIMING);
+            sk_motor_step(&ctrl, raw, dt, &out);
         } else {
-            sk_haptic_step(&haptic, -raw, fminf(fmaxf(dt, .0001f), .02f));
-            gates_off();
+            enum sk_motor_event event = sk_motor_step(&ctrl, raw, dt, &out);
+            if (event == SK_MOTOR_CALIBRATED)
+                atomic_set(&dirty, 1);
+            else if (event == SK_MOTOR_CALIBRATION_FAILED)
+                fault(FAULT_MOTOR);
         }
+        apply(&out);
         uint32_t elapsed = k_cyc_to_us_floor64((uint32_t)(k_cycle_get_32() - begin));
-        snapshot(fmaxf(elapsed, dt * 1000000), q);
-        if (elapsed > 3000 && atomic_get(&enabled))
+        snapshot(fmaxf(elapsed, dt * 1000000), out.q);
+        if (elapsed > 3000 && ctrl.enabled)
             fault(FAULT_TIMING);
     }
 }
@@ -325,8 +237,15 @@ int motor_start(void) {
     rc = pwm_init();
     if (rc)
         return rc;
-    storage_load_calibration(&calibration);
-    atomic_set(&enabled, calibration.valid);
+    sk_calibration stored = {0};
+    storage_load_calibration(&stored);
+    const sk_motor_limits limits = {.supply = 5, .calibration_voltage = 1};
+    const sk_haptic_config default_config = {
+        .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
+    float raw = 0;
+    encoder_read(&raw);
+    sk_motor_init(&ctrl, &limits, &stored, &default_config, raw);
+    calibration = ctrl.calibration;
     k_timer_start(&control_timer, K_MSEC(1), K_MSEC(1));
     k_thread_create(&thread, stack, K_THREAD_STACK_SIZEOF(stack), run, NULL, NULL, NULL, 1,
                     K_FP_REGS, K_NO_WAIT);

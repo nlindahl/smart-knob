@@ -17,4 +17,5 @@ target_compile_definitions(app PRIVATE LV_CONF_PATH="${CMAKE_CURRENT_SOURCE_DIR}
 target_include_directories(app PRIVATE ../core/include src)
 target_sources(app PRIVATE src/main.c src/motor.c src/sensors.c src/storage.c
   ../core/src/project.c ../core/src/haptics.c ../core/src/leds.c
-  ../core/src/protocol.c ../core/src/render.c ../core/src/encoder.c)
+  ../core/src/protocol.c ../core/src/render.c ../core/src/encoder.c
+  ../core/src/motor_control.c)
