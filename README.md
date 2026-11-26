@@ -41,7 +41,7 @@ The delivery archive includes `web/pkg`, `web/preview.js`, and `web/preview.wasm
 python3 scripts/serve.py
 ```
 
-Open **http://localhost:8080**. Create or duplicate views, drag widgets on the circular canvas, edit properties, and configure motor feedback and LEDs. Projects are saved in browser local storage; export JSON for a portable backup. Undo/redo buttons and Ctrl/Cmd+Z and Ctrl/Cmd+Y are available.
+Open **http://localhost:8080**. Create or duplicate views, drag widgets on the circular canvas, edit properties, and configure motor feedback and LEDs. The Motor feedback card plots the torque the knob will produce while turning, computed by the firmware's own haptics code, so the effect of strength, snap, click and end stops is visible before you feel it. Projects are saved in browser local storage; export JSON for a portable backup. Undo/redo buttons and Ctrl/Cmd+Z and Ctrl/Cmd+Y are available.
 
 The preview runs **the same C LVGL renderer and haptic/LED algorithms as firmware**, compiled with Emscripten. Its simulation shows positions and requested voltage; physical feedback is tested on a connected knob. Firmware renders RGB565; the browser renders XRGB8888, so color quantization differs slightly.
 

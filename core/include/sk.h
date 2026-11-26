@@ -90,6 +90,13 @@ void sk_haptic_init(sk_haptic_state *s, const sk_haptic_config *c, float angle);
 /* c with its initial position replaced by position, clamped to its bounds,
  * so reconfiguring a live view keeps the knob where it is. */
 sk_haptic_config sk_haptic_with_position(const sk_haptic_config *c, int32_t position);
+/* Torque curve for the editor: requested voltage while the knob is turned
+ * slowly forward across a window around the initial position (both end
+ * stops' approach for bounded modes). Each of the n samples holds the
+ * peak value in its interval so detent ticks show. Writes the window in
+ * degrees relative to the initial position; returns false if c is invalid. */
+bool sk_haptic_curve(const sk_haptic_config *c, float *from_deg, float *to_deg, float *out,
+                     size_t n);
 float sk_haptic_step(sk_haptic_state *s, float raw_angle, float dt);
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press);
 void sk_led_render(const sk_led_config *c, const sk_haptic_config *h, int32_t position,

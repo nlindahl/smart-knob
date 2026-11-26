@@ -210,6 +210,45 @@ static void keep_position(void) {
     sk_haptic_init(&h, &k, 1.f);
     assert(h.position == 42);
 }
+static void torque_curve(void) {
+    float from, to, q[200];
+    sk_haptic_config c = {.mode = SK_DETENT,
+                          .width_deg = 10,
+                          .strength = 1,
+                          .endstop = 1,
+                          .snap = 1.1f,
+                          .damping = 0,
+                          .click = .4f};
+    assert(sk_haptic_curve(&c, &from, &to, q, 200));
+    assert(from == -35 && to == 35);
+    /* Just past the centre of a detent the spring pulls back (negative). */
+    size_t after = 100 + 200 * 4 / 70; /* about 4 degrees past the centre */
+    assert(q[after] < -.1f);
+    /* Ticks appear as spikes larger than the spring alone. */
+    float peak = 0;
+    for (int i = 0; i < 200; i++)
+        peak = fmaxf(peak, fabsf(q[i]));
+    assert(peak >= .4f * SK_VOLTAGE_LIMIT * .9f);
+    c.click = 0;
+    sk_haptic_curve(&c, &from, &to, q, 200);
+    float spring = 0;
+    for (int i = 0; i < 200; i++)
+        spring = fmaxf(spring, fabsf(q[i]));
+    assert(spring < peak && spring <= 4 * 1.1f * 10 * SK_PI / 180 + .05f);
+    /* Free spin is flat; bounded shows the end stop pushing back. */
+    c.mode = SK_FREE;
+    sk_haptic_curve(&c, &from, &to, q, 200);
+    for (int i = 0; i < 200; i++)
+        assert(q[i] == 0);
+    c.mode = SK_BOUNDED;
+    c.min = 0;
+    c.max = 3;
+    sk_haptic_curve(&c, &from, &to, q, 200);
+    assert(from == -15 && to == 45);
+    assert(q[199] < -.3f); /* past the upper stop, torque pushes back */
+    c.width_deg = 0;
+    assert(!sk_haptic_curve(&c, &from, &to, q, 200));
+}
 static void click_field(void) {
     uint8_t b[160];
     sk_project p;
@@ -234,6 +273,7 @@ static void click_field(void) {
 int main(void) {
     click_field();
     keep_position();
+    torque_curve();
     sk_encoder_health health = {0};
     /* Repeated three-sample bursts must not permanently latch a healthy stream. */
     for (uint32_t ms = 0; ms < 1000; ms++)

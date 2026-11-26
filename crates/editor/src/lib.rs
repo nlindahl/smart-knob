@@ -24,6 +24,7 @@ mod browser {
             long_press: bool,
         ) -> js_sys::Float32Array;
         pub fn ring() -> js_sys::Uint8Array;
+        pub fn curve(bundle: &[u8], view: u16) -> js_sys::Float32Array;
         pub fn install_firmware();
         pub fn reset();
         pub fn download(name: &str, bytes: &[u8], mime: &str);

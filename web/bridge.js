@@ -168,6 +168,7 @@ globalThis.smartknob = {
   render(bytes,view,position,sub,ms,flash) { load(bytes,view); const p = preview._sk_preview_render(position,sub,ms,flash); return preview.HEAPU8.slice(p,p+240*240*4); },
   simulate(bytes,view,angle,pressed,longPress) { load(bytes,view); const p = preview._sk_preview_step(angle,pressed ? 1 : 0,longPress ? 1 : 0); return preview.HEAPF32.slice(p/4,p/4+3); },
   reset() { preview._sk_preview_reset(); },
+  curve(bytes,view) { load(bytes,view); const p = preview._sk_preview_curve(view); return preview.HEAPF32.slice(p/4,p/4+130); },
   ring() { const p = preview._sk_preview_leds(); return preview.HEAPU8.slice(p,p+216); },
   download(name,bytes,mime) { const url = URL.createObjectURL(new Blob([bytes.slice()],{type:mime})); const a = document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000); },
   import_project() { const input = document.createElement('input'); input.type='file'; input.accept='.json,application/json'; input.onchange = async () => { if (input.files[0]) { if (input.files[0].size > 262144) { message='Project file is too large'; return; } imported = await input.files[0].text(); } }; input.click(); },

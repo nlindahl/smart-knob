@@ -18,6 +18,10 @@ pub struct Editor {
     texture: Option<egui::TextureHandle>,
     last_bundle: Vec<u8>,
     ring: Vec<u8>,
+    /// Cached torque curve: bundle and view it was computed for, then
+    /// [from_deg, to_deg, samples…] from the firmware haptics.
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    curve: (Vec<u8>, u16, Vec<f32>),
     message: String,
     drag_origin: Option<(i16, i16)>,
     detent_text: String,
@@ -64,6 +68,7 @@ impl Default for Editor {
             texture: None,
             last_bundle: vec![],
             ring: vec![],
+            curve: (vec![], 0, vec![]),
             message: String::new(),
             drag_origin: None,
             detent_text: String::new(),
@@ -427,6 +432,10 @@ impl Editor {
                         .iter()
                         .map(|v| (v.id, v.name.clone()))
                         .collect();
+                    #[cfg(target_arch = "wasm32")]
+                    let curve = self.torque_curve();
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let curve: Option<Vec<f32>> = None;
                     let v = &mut self.project.views[self.view];
                     theme::card(ui, |ui| {
                         theme::section(ui, "View", Some(format!("ID {}", v.id)));
@@ -534,6 +543,9 @@ impl Editor {
                             .on_hover_text(
                                 "Tick played on each detent (1.0 = 2.5 V). Independent of strength.",
                             );
+                            if let Some(curve) = &curve {
+                                torque_plot(ui, curve, h.width_deg);
+                            }
                             ui.horizontal(|ui| {
                                 ui.label(RichText::new("Initial").color(theme::MUTED));
                                 ui.add(
@@ -867,6 +879,17 @@ impl Editor {
             self.device_view = 0;
         }
     }
+    /// Torque curve of the selected view, recomputed only when it changes.
+    #[cfg(target_arch = "wasm32")]
+    fn torque_curve(&mut self) -> Option<Vec<f32>> {
+        let bundle = self.project.bundle().ok()?;
+        let id = self.project.views[self.view].id;
+        if self.curve.0 != bundle || self.curve.1 != id {
+            let data = super::browser::curve(&bundle, id).to_vec();
+            self.curve = (bundle, id, data);
+        }
+        (self.curve.2.len() > 2).then(|| self.curve.2.clone())
+    }
     fn preview(&mut self, root: &mut egui::Ui, ms: u32) {
         #[cfg(target_arch = "wasm32")]
         let ctx = root.ctx().clone();
@@ -1154,6 +1177,88 @@ impl Editor {
             });
     }
 }
+/// Plot of requested motor voltage against angle while turning forward:
+/// negative pulls back toward the detent, spikes are clicks, end stops push.
+fn torque_plot(ui: &mut egui::Ui, data: &[f32], width_deg: f32) {
+    let (from, to, samples) = (data[0], data[1], &data[2..]);
+    ui.add_space(4.);
+    ui.label(
+        RichText::new("Torque while turning forward")
+            .small()
+            .color(theme::MUTED),
+    );
+    let (rect, response) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 96.), Sense::hover());
+    let p = ui.painter_at(rect);
+    p.rect_filled(rect, 8., theme::CARD_HI);
+    let peak = samples
+        .iter()
+        .fold(0.5f32, |m, v| m.max(v.abs()))
+        .min(VOLTAGE_LIMIT);
+    let x = |deg: f32| rect.left() + (deg - from) / (to - from) * rect.width();
+    let y = |v: f32| rect.center().y - v / peak * (rect.height() * 0.42);
+    // Detent centres.
+    if width_deg > 0. && to > from {
+        let mut d = (from / width_deg).ceil() * width_deg;
+        while d <= to {
+            p.line_segment(
+                [
+                    Pos2::new(x(d), rect.top() + 6.),
+                    Pos2::new(x(d), rect.bottom() - 6.),
+                ],
+                egui::Stroke::new(1., theme::BORDER),
+            );
+            d += width_deg;
+        }
+    }
+    p.line_segment(
+        [
+            Pos2::new(rect.left(), y(0.)),
+            Pos2::new(rect.right(), y(0.)),
+        ],
+        egui::Stroke::new(1., theme::MUTED.linear_multiply(0.5)),
+    );
+    let n = samples.len().max(2) - 1;
+    let points: Vec<Pos2> = samples
+        .iter()
+        .enumerate()
+        .map(|(i, v)| Pos2::new(x(from + (to - from) * i as f32 / n as f32), y(*v)))
+        .collect();
+    p.add(egui::Shape::line(
+        points,
+        egui::Stroke::new(2., theme::ACCENT),
+    ));
+    let label = |pos: Pos2, align: egui::Align2, text: String| {
+        p.text(
+            pos,
+            align,
+            text,
+            egui::FontId::proportional(10.5),
+            theme::MUTED,
+        );
+    };
+    label(
+        rect.left_top() + Vec2::new(6., 4.),
+        egui::Align2::LEFT_TOP,
+        format!("+{peak:.1} V"),
+    );
+    label(
+        rect.left_bottom() + Vec2::new(6., -4.),
+        egui::Align2::LEFT_BOTTOM,
+        format!("{from:.0}°"),
+    );
+    label(
+        rect.right_bottom() + Vec2::new(-6., -4.),
+        egui::Align2::RIGHT_BOTTOM,
+        format!("{to:.0}°"),
+    );
+    response.on_hover_text(
+        "Motor request while turning the knob slowly forward, from the firmware's haptics code. \
+         Below the line pulls back toward a detent; spikes are clicks; end stops push back hard.",
+    );
+}
+/// Firmware hard limit on requested voltage (SK_VOLTAGE_LIMIT).
+const VOLTAGE_LIMIT: f32 = 2.5;
 /// Short description of a view's haptics, e.g. "Detents · 6°".
 fn mode_summary(h: &Haptics) -> String {
     match h.mode {

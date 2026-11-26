@@ -72,6 +72,15 @@ EXPORT int sk_preview_select(uint16_t id) {
     }
     return 1;
 }
+/* [from_deg, to_deg, 128 samples] for the selected view, or zeros. */
+EXPORT const float *sk_preview_curve(uint16_t id) {
+    static float result[2 + 128];
+    memset(result, 0, sizeof(result));
+    const sk_view *v = sk_find_view(&project, id);
+    if (v)
+        sk_haptic_curve(&v->haptic, &result[0], &result[1], &result[2], 128);
+    return result;
+}
 EXPORT void sk_preview_reset(void) {
     input_angle = 0;
     view_id = 0;

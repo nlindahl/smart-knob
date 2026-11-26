@@ -58,6 +58,44 @@ sk_haptic_config sk_haptic_with_position(const sk_haptic_config *c, int32_t posi
     out.initial = position < lo ? lo : position > hi ? hi : position;
     return out;
 }
+bool sk_haptic_curve(const sk_haptic_config *c, float *from_deg, float *to_deg, float *out,
+                     size_t n) {
+    if (!sk_haptic_valid(c) || n < 2)
+        return false;
+    float w = c->width_deg;
+    float from = -3.5f * w, to = 3.5f * w;
+    if (c->mode == SK_BOUNDED || c->mode == SK_SWITCH) {
+        /* Show the lower end stop and, if close enough, the upper one. */
+        float span = (float)(c->max - c->min);
+        from = ((float)(c->min - c->initial) - 1.5f) * w;
+        to = ((float)(c->min - c->initial) + fminf(span, 6) + 1.5f) * w;
+    }
+    *from_deg = from;
+    *to_deg = to;
+    static sk_haptic_state s;
+    sk_haptic_init(&s, c, 0);
+    const float step = .0005f, dt = .001f; /* 0.5 rad/s: slow, like testing by hand */
+    float angle = 0, target = from * SK_PI / 180;
+    /* Wind back to the start of the window, then record a forward sweep. */
+    while (angle > target) {
+        angle = fmaxf(angle - step, target);
+        sk_haptic_step(&s, angle, dt);
+    }
+    for (size_t i = 0; i < n; i++) {
+        float end = (from + (to - from) * (float)i / (float)(n - 1)) * SK_PI / 180;
+        float peak = 0;
+        bool any = false;
+        do {
+            angle = fminf(angle + step, end);
+            float v = sk_haptic_step(&s, angle, dt);
+            if (!any || fabsf(v) > fabsf(peak))
+                peak = v;
+            any = true;
+        } while (angle < end);
+        out[i] = peak;
+    }
+    return true;
+}
 void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press) {
     /* Factory firmware plays ±5 V (press), ±1.5 V (release) and ±20 V (long),
      * all clipped by its 5 V limit; ours are clipped by SK_VOLTAGE_LIMIT. */
