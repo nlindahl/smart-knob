@@ -124,6 +124,8 @@ cargo run --locked -p knobctl -- upload demo.skv --port /dev/ttyACM0 --save
 cargo run --locked -p knobctl -- state --port /dev/ttyACM0
 cargo run --locked -p knobctl -- calibrate --port /dev/ttyACM0
 cargo run --locked -p knobctl -- select 4 --port /dev/ttyACM0
+cargo run --locked -p knobctl -- diag --port /dev/ttyACM0      # encoder + calibration details
+cargo run --locked -p knobctl -- watch --port /dev/ttyACM0     # print state changes while turning
 ```
 
 Additional commands: `demo OUTPUT`, `tare`, `stop`, `enable`, and `save`. Serial commands use the new protocol described in [protocol.md](docs/protocol.md); the factory Python/web clients use a different protocol.

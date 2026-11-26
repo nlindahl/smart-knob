@@ -11,6 +11,8 @@ pub const TARE: u8 = 8;
 pub const SAVE: u8 = 9;
 pub const STOP: u8 = 10;
 pub const ENABLE: u8 = 11;
+/// Read-only encoder and motor diagnostics text (firmware since 2026-10).
+pub const DIAGNOSTICS: u8 = 12;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame {

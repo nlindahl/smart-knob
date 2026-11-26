@@ -27,7 +27,10 @@ try:
     assert "view=4" in run("state"), "Rejected upload changed the active view"
     run("upload", str(root / "build-host/demo.skv"))
     assert "view=4" in run("state"), "Live upload jumped away from the current view"
+    assert "Motor: enabled=0" in run("diag")
+    watched = run("watch", "--seconds", "0.3")
+    assert "view=4 position=0" in watched and "samples, position range 0..0" in watched
     print("Rust/C integration: USB framing, upload, save, select, state, rejected upload preserves active view, "
-          "re-upload keeps the current view")
+          "re-upload keeps the current view, diag, watch")
 finally:
     emulator.terminate(); emulator.wait(); os.close(master); os.close(slave)

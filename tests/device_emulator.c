@@ -44,6 +44,12 @@ static uint8_t command(void *ctx, uint8_t op, const uint8_t *data, size_t len, u
         view_id = id;
         return SK_OK;
     }
+    if (op == SK_ENCODER_DIAGNOSTICS && len == 0) {
+        static const char text[] = "Encoder: emulator\nMotor: enabled=0 cal=none";
+        memcpy(out, text, sizeof(text) - 1);
+        *out_len = sizeof(text) - 1;
+        return SK_OK;
+    }
     if (op == SK_STATE && len == 0) {
         memset(out, 0, 28);
         out[0] = view_id;

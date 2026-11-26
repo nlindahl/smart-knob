@@ -64,6 +64,19 @@ enum Command {
         #[arg(long)]
         port: String,
     },
+    /// Print encoder and motor diagnostics (calibration result, read errors).
+    Diag {
+        #[arg(long)]
+        port: String,
+    },
+    /// Poll device state and print each change, e.g. while turning the knob.
+    Watch {
+        #[arg(long)]
+        port: String,
+        /// How long to watch, in seconds.
+        #[arg(long, default_value_t = 30.)]
+        seconds: f64,
+    },
     Ports,
 }
 struct Device {
@@ -117,6 +130,87 @@ impl Device {
         self.exchange(f)
     }
 }
+/// Decoded 28-byte STATE reply.
+struct State {
+    view: u16,
+    position: i32,
+    fraction: f32,
+    faults: u8,
+    calibration: u8,
+    loops: u32,
+    voltage: f32,
+    max_loop_us: f32,
+    presses: u16,
+}
+impl State {
+    fn parse(r: &[u8]) -> Option<Self> {
+        if r.len() != 28 {
+            return None;
+        }
+        let f32_at = |i: usize| f32::from_le_bytes(r[i..i + 4].try_into().unwrap());
+        Some(Self {
+            view: u16::from_le_bytes([r[0], r[1]]),
+            position: i32::from_le_bytes(r[2..6].try_into().unwrap()),
+            fraction: f32_at(6),
+            faults: r[10],
+            calibration: r[11],
+            loops: u32::from_le_bytes(r[12..16].try_into().unwrap()),
+            voltage: f32_at(16),
+            max_loop_us: f32_at(20),
+            presses: u16::from_le_bytes([r[24], r[25]]),
+        })
+    }
+}
+impl std::fmt::Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "view={} position={} fraction={:.3} faults={} calibration={} loops={} voltage={:.3} max_loop_us={:.0} presses={}",
+            self.view,
+            self.position,
+            self.fraction,
+            self.faults,
+            self.calibration,
+            self.loops,
+            self.voltage,
+            self.max_loop_us,
+            self.presses
+        )
+    }
+}
+fn watch(port: &str, seconds: f64) -> Result<(), String> {
+    let mut d = Device::open(port)?;
+    let start = Instant::now();
+    let mut last: Option<(u16, i32, u8, u16)> = None;
+    let (mut lo, mut hi, mut samples) = (i32::MAX, i32::MIN, 0u32);
+    let mut state = None;
+    while start.elapsed().as_secs_f64() < seconds {
+        let s = State::parse(&d.call(protocol::STATE, vec![])?).ok_or("Unexpected state reply")?;
+        samples += 1;
+        lo = lo.min(s.position);
+        hi = hi.max(s.position);
+        let key = (s.view, s.position, s.faults, s.presses);
+        if last != Some(key) {
+            println!(
+                "{:6.2}s view={} position={} fraction={:+.2} voltage={:+.2} faults={} presses={}",
+                start.elapsed().as_secs_f64(),
+                s.view,
+                s.position,
+                s.fraction,
+                s.voltage,
+                s.faults,
+                s.presses
+            );
+            last = Some(key);
+        }
+        state = Some(s);
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    if let Some(s) = state {
+        println!("{samples} samples, position range {lo}..{hi}; final: {s}");
+    }
+    Ok(())
+}
 fn project(path: &PathBuf) -> Result<Project, String> {
     let p: Project = serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
@@ -166,6 +260,13 @@ fn run() -> Result<(), String> {
                 }
             );
         }
+        Command::Diag { port } => {
+            let text = Device::open(&port)?
+                .call(protocol::DIAGNOSTICS, vec![])
+                .map_err(|e| format!("{e} (firmware may predate diagnostics)"))?;
+            println!("{}", String::from_utf8_lossy(&text));
+        }
+        Command::Watch { port, seconds } => watch(&port, seconds)?,
         Command::Ports => {
             for p in serialport::available_ports().map_err(|e| e.to_string())? {
                 println!("{} {:?}", p.port_name, p.port_type);
@@ -183,21 +284,8 @@ fn run() -> Result<(), String> {
                 _ => unreachable!(),
             };
             let response = Device::open(&port)?.call(op, payload)?;
-            if op == protocol::STATE && response.len() == 28 {
-                let u16_at = |i| u16::from_le_bytes(response[i..i + 2].try_into().unwrap());
-                let float_at = |i| f32::from_le_bytes(response[i..i + 4].try_into().unwrap());
-                println!(
-                    "view={} position={} fraction={:.3} faults={} calibration={} loops={} voltage={:.3} max_loop_us={:.0} presses={}",
-                    u16_at(0),
-                    i32::from_le_bytes(response[2..6].try_into().unwrap()),
-                    float_at(6),
-                    response[10],
-                    response[11],
-                    u32::from_le_bytes(response[12..16].try_into().unwrap()),
-                    float_at(16),
-                    float_at(20),
-                    u16_at(24)
-                );
+            if let Some(s) = State::parse(&response).filter(|_| op == protocol::STATE) {
+                println!("{s}");
             } else {
                 println!("Command accepted");
             }
