@@ -78,6 +78,30 @@ static void haptics(void) {
         sk_haptic_step(&s, .01f * i, .001f);
     assert(s.position == 2);
     assert(fabsf(s.voltage) < .001f);
+    /* Entering a detent plays a push-pull tick: along the motion for two
+     * periods, then against it. Without the tick, damping alone would make
+     * the request negative right after crossing the snap point. */
+    {
+        sk_haptic_config t = {.mode = SK_DETENT,
+                              .width_deg = 6,
+                              .strength = 1,
+                              .endstop = 1,
+                              .snap = 1.1f,
+                              .damping = .5f};
+        sk_haptic_state h;
+        sk_haptic_init(&h, &t, 0);
+        float cross = 1.12f * 6 * SK_PI / 180;
+        float first = sk_haptic_step(&h, cross, .001f);
+        assert(h.position == 1 && first > 0);
+        sk_haptic_step(&h, cross, .001f);
+        float back = sk_haptic_step(&h, cross, .001f);
+        assert(back < 0);
+        sk_haptic_step(&h, cross, .001f);
+        assert(h.tick_ticks == 0);
+        /* Crossing the other way ticks the other way. */
+        sk_haptic_init(&h, &t, 0);
+        assert(sk_haptic_step(&h, -cross, .001f) < 0 && h.position == -1);
+    }
     c.snap = .49f;
     assert(!sk_haptic_valid(&c));
     c.snap = 1;

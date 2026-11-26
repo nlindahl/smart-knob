@@ -57,6 +57,15 @@ void sk_haptic_pulse(sk_haptic_state *s, bool pressed, bool long_press) {
 }
 /* Detent "click" gain in V·s/rad, as in the factory firmware: fine detents
  * need more derivative action because their spring torque is small. */
+/* Detent tick amplitude in volts at strength 1. Firmware sets it from
+ * CONFIG_SK_DETENT_TICK_MV; host builds (tests, browser preview) use the
+ * same 1.5 V default. */
+#ifdef CONFIG_SK_DETENT_TICK_MV
+#define TICK_VOLTS (CONFIG_SK_DETENT_TICK_MV / 1000.0f)
+#else
+#define TICK_VOLTS 1.5f
+#endif
+#define TICK_HALF 2 /* control periods per tick half */
 static float click_gain(const sk_haptic_config *c) {
     const float lo = 3, hi = 8, at_lo = .08f, at_hi = .02f;
     float t = clamp((c->width_deg - lo) / (hi - lo), 0, 1);
@@ -95,6 +104,8 @@ float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
     if (next > hi)
         next = hi;
     s->center += (float)(next - s->position) * width;
+    bool moved = next != s->position;
+    int8_t moved_dir = next > s->position ? 1 : -1;
     s->position = (int32_t)next;
     error = s->unwrapped - s->center;
     s->sub_position = error / width;
@@ -116,6 +127,19 @@ float sk_haptic_step(sk_haptic_state *s, float angle, float dt) {
         /* Magnetic detents skip the click term, which would add clicks between them. */
         float d = c->mode == SK_MAGNETIC ? 0 : click_gain(c);
         q -= (d + c->damping * .03f) * s->velocity;
+    }
+    /* A short tick each time the knob enters a detent: a push along the
+     * motion, then against it. The spring alone only fades out at the snap
+     * point, which feels soft at fine spacing. Magnetic mode ticks only on
+     * its detents; free mode never ticks. */
+    if (moved && c->mode != SK_FREE && magnetic && TICK_VOLTS > 0) {
+        s->tick_ticks = 2 * TICK_HALF;
+        s->tick_dir = moved_dir;
+    }
+    if (s->tick_ticks) {
+        float amplitude = TICK_VOLTS * c->strength * s->tick_dir;
+        q += s->tick_ticks > TICK_HALF ? amplitude : -amplitude;
+        s->tick_ticks--;
     }
     if (s->pulse_ticks) {
         q += s->pulse_ticks > s->pulse_half ? s->pulse_strength : -s->pulse_strength;

@@ -59,6 +59,8 @@ typedef struct {
     float center, previous_angle, unwrapped, velocity, sub_position, voltage;
     int32_t position;
     uint16_t pulse_ticks, pulse_half;
+    uint8_t tick_ticks;
+    int8_t tick_dir;
     float pulse_strength;
     bool initialized;
 } sk_haptic_state;
