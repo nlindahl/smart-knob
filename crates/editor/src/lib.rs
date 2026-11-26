@@ -1,4 +1,5 @@
 mod app;
+mod theme;
 pub use app::Editor;
 
 #[cfg(target_arch = "wasm32")]

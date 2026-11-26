@@ -17,8 +17,8 @@ try {
   await page.waitForTimeout(300);
   const project = () => page.evaluate(() => JSON.parse(localStorage.getItem('smartknob.project.v1')));
   // Edit a numeric widget by dragging it on the canvas.
-  await page.mouse.move(453,330); await page.mouse.down();
-  await page.mouse.move(493,355,{steps:12}); await page.mouse.up();
+  await page.mouse.move(661,408); await page.mouse.down();
+  await page.mouse.move(701,433,{steps:12}); await page.mouse.up();
   await page.waitForTimeout(300);
   let p = await project();
   assert(p.views[0].widgets[2].x > 45, 'Dragging did not move the widget');
@@ -31,7 +31,7 @@ try {
   await page.keyboard.press('Control+y'); await page.waitForTimeout(200);
   assert.equal((await project()).views[0].widgets[2].x,moved);
   // Add a view and verify browser persistence survives a reload.
-  await page.mouse.click(25,190); await page.waitForTimeout(200);
+  await page.mouse.click(45,446); await page.waitForTimeout(200);
   assert.equal((await project()).views.length,7);
   await page.reload(); await page.waitForFunction(() => !document.querySelector('#loading'));
   assert.equal((await project()).views.length,7);

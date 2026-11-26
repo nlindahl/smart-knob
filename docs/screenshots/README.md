@@ -1,6 +1,6 @@
 # Editor screenshots and SmartKnob view previews
 
-Captured on 2026-10-20 from the actual Rust/WASM editor and LVGL renderer. No physical SmartKnob was connected. The hardware mockup uses actual display pixels and ring positions/colors from the firmware's renderer; the housing and LED glow are illustrative. Physical brightness and display color quantization will differ.
+Captured on 2026-11-26 from the actual Rust/WASM editor and LVGL renderer (restyled editor). No physical SmartKnob was connected. The hardware mockup uses actual display pixels and ring positions/colors from the firmware's renderer; the housing and LED glow are illustrative. Physical brightness and display color quantization will differ.
 
 ## Editor overview
 

@@ -21,20 +21,19 @@ try {
   await page.goto(base);
   await page.waitForFunction(() => !document.querySelector('#loading'));
   // Put the rotation slider at a nonzero value so its bindings are visible.
-  await page.mouse.click(340, 569);
+  await page.mouse.click(815, 702); // Rotation value box.
   await page.keyboard.press('Control+a');
   await page.keyboard.type('144');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(output, 'editor-overview.png') });
 
-  await page.mouse.click(55, 124); // Bounded preset.
-  await page.mouse.click(1250, 173); // Motor feedback inspector.
+  await page.mouse.click(100, 287); // Bounded view; motor feedback is open by default.
   await page.waitForTimeout(350);
   await page.screenshot({ path: path.join(output, 'editor-motor-feedback.png') });
-  await page.mouse.click(1250, 173); // Close motor inspector.
+  await page.mouse.click(1180, 312); // Collapse motor feedback.
   await page.waitForTimeout(350); // Wait for collapse animation before locating LEDs.
-  await page.mouse.click(1250, 193); // Open LED inspector.
+  await page.mouse.click(1170, 384); // Open the LED ring card.
   await page.waitForTimeout(350);
   await page.screenshot({ path: path.join(output, 'editor-led-ring.png') });
 
