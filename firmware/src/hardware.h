@@ -27,6 +27,7 @@ void motor_snapshot(motor_status *out);
 bool motor_get_calibration(sk_calibration *out);
 bool motor_calibration_dirty(void);
 void motor_calibration_saved(void);
+size_t motor_diagnostic_text(char *out, size_t size);
 int encoder_init(void);
 int encoder_read(float *angle);
 size_t encoder_diagnostic_text(char *out, size_t size);

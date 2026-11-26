@@ -155,7 +155,12 @@ static uint8_t command(void *ctx, uint8_t op, const uint8_t *bytes, size_t len, 
     if (len)
         return SK_INVALID;
     if (op == SK_ENCODER_DIAGNOSTICS) {
-        *out_len = encoder_diagnostic_text((char *)out, SK_MAX_PAYLOAD - 1);
+        size_t n = encoder_diagnostic_text((char *)out, SK_MAX_PAYLOAD - 1);
+        if (n + 2 < SK_MAX_PAYLOAD - 1) {
+            out[n++] = '\n';
+            n += motor_diagnostic_text((char *)out + n, SK_MAX_PAYLOAD - 1 - n);
+        }
+        *out_len = n;
         return SK_OK;
     }
     if (op == SK_STATE) {

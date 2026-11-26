@@ -8,6 +8,7 @@
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/atomic.h>
+#include <zephyr/sys/printk.h>
 
 /* Three operators share one 160 MHz center-aligned timer (20 kHz).
  * Two compare edges per phase produce complementary outputs with 500 ns
@@ -116,6 +117,12 @@ static motor_status status;
 /* Copy of ctrl.calibration readable from other threads under status_lock. */
 static sk_calibration calibration;
 static sk_motor ctrl;
+/* Calibration diagnostics readable from other threads under status_lock. */
+static struct {
+    uint8_t result;
+    bool enabled;
+    float measured_pairs, measured_travel, consistency, hysteresis, drift;
+} diag;
 static atomic_t pause_requested, paused, dirty, stop_requested;
 K_SEM_DEFINE(control_tick, 0, 1);
 static void timer_tick(struct k_timer *timer) {
@@ -133,6 +140,13 @@ static void snapshot(float elapsed, float voltage) {
         status.max_loop_us = elapsed;
     status.calibration = sk_motor_calibrating(&ctrl) ? 1 : ctrl.calibration.valid ? 2 : 0;
     calibration = ctrl.calibration;
+    diag.result = ctrl.result;
+    diag.enabled = ctrl.enabled;
+    diag.measured_pairs = ctrl.measured_pairs;
+    diag.measured_travel = ctrl.measured_travel;
+    diag.consistency = ctrl.consistency;
+    diag.hysteresis = ctrl.hysteresis;
+    diag.drift = ctrl.drift;
     k_spin_unlock(&status_lock, key);
 }
 static void fault(uint8_t value) {
@@ -308,4 +322,24 @@ bool motor_calibration_dirty(void) {
 }
 void motor_calibration_saved(void) {
     atomic_clear(&dirty);
+}
+static int milli(float v) {
+    return isfinite(v) ? (int)lroundf(v * 1000) : 0;
+}
+size_t motor_diagnostic_text(char *out, size_t size) {
+    if (!size)
+        return 0;
+    k_spinlock_key_t key = k_spin_lock(&status_lock);
+    __typeof__(diag) d = diag;
+    sk_calibration c = calibration;
+    k_spin_unlock(&status_lock, key);
+    /* Values in thousandths: pairs_x1000, angles in mrad. */
+    int written =
+        snprintk(out, size,
+                 "Motor: enabled=%u cal=%s pp=%u dir=%d zero_mrad=%d pairs_x1000=%d "
+                 "travel_mrad=%d consistency_x1000=%d hysteresis_mrad=%d drift_mrad=%d",
+                 d.enabled, sk_calibration_result_name(d.result), c.pole_pairs, c.direction,
+                 milli(c.zero_electrical), milli(d.measured_pairs), milli(d.measured_travel),
+                 milli(d.consistency), milli(d.hysteresis), milli(d.drift));
+    return written > 0 ? MIN((size_t)written, size - 1) : 0;
 }
