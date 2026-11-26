@@ -8,3 +8,19 @@ config SK_MOTOR_DEADTIME_NS
     int "Motor gate dead time in nanoseconds"
     default 500
     range 250 1500
+config SK_MOTOR_SUPPLY_MV
+    int "Motor driver supply voltage in millivolts"
+    default 5000
+    range 3000 12000
+    help
+      Supply assumed by voltage-mode FOC when converting requested phase
+      voltages to PWM duty. The Dev Kit drives the TMC6300 from USB 5 V.
+config SK_MOTOR_CALIBRATION_MV
+    int "Calibration alignment vector in millivolts"
+    default 2000
+    range 500 3000
+    help
+      d-axis voltage used to drag the rotor during calibration. Too little
+      lets cogging and friction stop the rotor; the simulation in
+      tests/motor_sim.c calibrates reliably from 2 V. No current sensing:
+      the stall current is roughly this voltage over the phase resistance.

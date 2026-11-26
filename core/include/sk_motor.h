@@ -18,7 +18,8 @@ enum sk_calibration_result {
     SK_CAL_NOT_INTEGER, /* measured pole pairs not close to an integer */
     SK_CAL_ENDPOINTS,   /* start/end alignment disagree electrically */
     SK_CAL_DRIFT,       /* rotor moved while holding the final vector */
-    SK_CAL_ABORTED
+    SK_CAL_ABORTED,
+    SK_CAL_INCONSISTENT /* electrical offset varied around the sweep */
 };
 enum sk_motor_event { SK_MOTOR_IDLE, SK_MOTOR_CALIBRATED, SK_MOTOR_CALIBRATION_FAILED };
 typedef struct {
@@ -29,9 +30,11 @@ typedef struct {
     uint8_t phase;
     uint32_t tick;
     float electrical, previous_raw, travel, start_travel, calib_start, end_mechanical;
+    float offset_x[2], offset_y[2]; /* forward, reverse */
+    uint32_t offset_samples[2];
     /* Last calibration diagnostics, retained after success or failure. */
     uint8_t result;
-    float measured_pairs, measured_travel, drift;
+    float measured_pairs, measured_travel, drift, consistency, hysteresis;
 } sk_motor;
 typedef struct {
     bool drive; /* false: all gates off (coast) */

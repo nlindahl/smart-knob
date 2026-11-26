@@ -85,7 +85,8 @@ static void plant_step(plant *p, const sk_motor_output *out, float supply) {
         p->theta += p->omega * h;
     }
 }
-static const sk_motor_limits limits = {.supply = 5, .calibration_voltage = 1};
+/* Matches the firmware defaults (CONFIG_SK_MOTOR_SUPPLY_MV / _CALIBRATION_MV). */
+static const sk_motor_limits limits = {.supply = 5, .calibration_voltage = 2};
 static const sk_haptic_config free_config = {
     .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
 
@@ -145,6 +146,34 @@ static void calibration_matrix(void) {
                     cases++;
                 }
     printf("calibration: %d plant variants recovered\n", cases);
+}
+/* Heavy cogging and friction lag the rotor behind the vector; averaging the
+ * forward and reverse sweeps must still find electrical zero precisely. */
+static void calibration_heavy_load(void) {
+    for (int winding = -1; winding <= 1; winding += 2) {
+        plant p;
+        plant_default(&p, 7, winding, -1, 2.2f, .9f);
+        p.cogging = 6e-3f;
+        p.coulomb = 4e-3f;
+        sk_motor m;
+        assert(calibrate(&m, &p));
+        float err = electrical_error(&m, &p);
+        printf("calibration under load: zero error %.3f rad, sweep hysteresis %.2f rad\n", err,
+               m.hysteresis);
+        assert(err < .05f && m.hysteresis > .2f);
+    }
+}
+/* A rotor that cannot move must fail calibration and leave the gates off. */
+static void calibration_stalled(void) {
+    plant p;
+    plant_default(&p, 7, 1, 1, 0, 0);
+    p.inertia = 1e3f; /* jammed */
+    sk_motor m;
+    assert(!calibrate(&m, &p));
+    assert(m.result == SK_CAL_NO_MOTION && !m.enabled);
+    sk_motor_output out;
+    sk_motor_step(&m, encoder(&p), .001f, &out);
+    assert(!out.drive);
 }
 static void calibrated(sk_motor *m, plant *p) {
     plant_default(p, 7, -1, 1, .8f, 1.7f);
@@ -239,6 +268,8 @@ static void detents_count(void) {
 }
 int main(void) {
     calibration_matrix();
+    calibration_heavy_load();
+    calibration_stalled();
     detent_restores();
     endstop_resists();
     detents_count();

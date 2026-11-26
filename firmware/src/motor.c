@@ -239,7 +239,9 @@ int motor_start(void) {
         return rc;
     sk_calibration stored = {0};
     storage_load_calibration(&stored);
-    const sk_motor_limits limits = {.supply = 5, .calibration_voltage = 1};
+    const sk_motor_limits limits = {.supply = CONFIG_SK_MOTOR_SUPPLY_MV / 1000.0f,
+                                    .calibration_voltage =
+                                        CONFIG_SK_MOTOR_CALIBRATION_MV / 1000.0f};
     const sk_haptic_config default_config = {
         .mode = SK_FREE, .width_deg = 6, .snap = 1.1f, .endstop = .8f};
     float raw = 0;
